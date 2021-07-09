@@ -16,10 +16,6 @@ class MemoManager:
         if name in self.name_to_memo:
             return self.name_to_memo[name]
 
-        self.current_index += 1
         self.name_to_memo[name] = Memo(self.current_index)
+        self.current_index += 1
         return self.name_to_memo[name]
-
-    def set_memo(self, name, value):
-        memo = get_memo(name)
-        memo.value = value

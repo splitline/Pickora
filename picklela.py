@@ -2,80 +2,96 @@ import ast
 import pickle
 from memo import Memo, MemoManager
 
+
 def is_builtins(name):
     return name in __builtins__.__dir__()
 
 
 pickle_res = b''
+memo_manager = MemoManager()
 
 
-def traverse(stmt):
+def traverse(node):
     global pickle_res
 
-    stmt_type = type(stmt)
+    node_type = type(node)
 
-    if stmt_type == ast.Assign:
-        targets, value = stmt.targets, stmt.value
+    if node_type == ast.Assign:
+        targets, value = node.targets, node.value
+        traverse(value)
+        for target in targets:
+            memo = memo_manager.get_memo(target.id)
+            pickle_res += pickle.PUT
+            pickle_res += str(memo.index).encode() + b'\n'
         print(targets, value)
-        # TODO
 
-    elif stmt_type == ast.Expr:
-        traverse(stmt.value)
-
-    elif stmt_type == ast.Call:
-        function_name, args = stmt.func.id, stmt.args
-        if is_builtins(function_name):
-            pickle_res += b'c__builtin__\n' + function_name.encode() + b'\n'
+    elif node_type == ast.Name:
+        if memo_manager.contains(node.id):
+            memo = memo_manager.get_memo(node.id)
+            pickle_res += pickle.GET
+            pickle_res += str(memo.index).encode() + b'\n'
+        elif is_builtins(node.id):
+            pickle_res += b'c__builtin__\n' + node.id.encode() + b'\n'
         else:
-            raise NotImplementedError(f"Not a builtin function: {function_name}")
+            raise NameError(f"name '{node.id}' is not defined.")
 
+    elif node_type == ast.Expr:
+        traverse(node.value)
+
+    elif node_type == ast.Call:
+        traverse(node.func)
         pickle_res += pickle.MARK
-        for arg in args:
+        for arg in node.args:
             traverse(arg)
         pickle_res += pickle.TUPLE + pickle.REDUCE
 
-    elif stmt_type == ast.Constant:
-        if type(stmt.value) == int:
-            pickle_res += pickle.INT + str(stmt.value).encode() + b'\n'
-        elif type(stmt.value) == float:
-            pickle_res += pickle.FLOAT + str(stmt.value).encode() + b'\n'
-        elif type(stmt.value) == str:
-            pickle_res += pickle.UNICODE + stmt.value.encode('unicode_escape') + b'\n'
-            
-    elif stmt_type == ast.List:
+    elif node_type == ast.Constant:
+        if type(node.value) == int:
+            pickle_res += pickle.INT + str(node.value).encode() + b'\n'
+        elif type(node.value) == float:
+            pickle_res += pickle.FLOAT + str(node.value).encode() + b'\n'
+        elif type(node.value) == str:
+            pickle_res += pickle.UNICODE + node.value.encode('unicode_escape') + b'\n'
+
+    elif node_type == ast.List:
         pickle_res += pickle.MARK
         pickle_res += pickle.LIST
-        for element in stmt.elts:
+        for element in node.elts:
             traverse(element)
             pickle_res += pickle.APPEND
 
-    elif stmt_type == ast.Dict:
+    elif node_type == ast.Dict:
         pickle_res += pickle.MARK
         pickle_res += pickle.DICT
-        assert(len(stmt.keys) == len(stmt.values))
-        for key, val in zip(stmt.keys, stmt.values):
+        assert(len(node.keys) == len(node.values))
+        for key, val in zip(node.keys, node.values):
             traverse(key)
             traverse(val)
             pickle_res += pickle.SETITEM
 
-    elif stmt_type == ast.Attribute:
+    elif node_type == ast.Attribute:
         # TODO
         pass
 
 
 if __name__ == "__main__":
     source = '''
-print("string", { 1337: "l33t", "int": 123, "float": 3.14, "nested": [{"x": "y", "list": [1,2,3]}, {"a":"b"}] })
-
-''' 
+math = __import__("math")
+base = 2
+exp = 10
+res = pow(base, exp)
+print(base, "**", exp, "=", res)
+print(list(map(hex,[pow(2, 8), pow(2,16), pow(2,32)])))
+print(getattr(math, 'pi'))
+'''
     DEBUG = True
 
     tree = ast.parse(source)
     if DEBUG:
-        print(ast.dump(tree, indent=2))
+        print(ast.dump(tree, indent=4))
 
-    for stmt in tree.body:
-        traverse(stmt)
+    for node in tree.body:
+        traverse(node)
 
     pickle_res += pickle.STOP
 
@@ -86,7 +102,5 @@ print("string", { 1337: "l33t", "int": 123, "float": 3.14, "nested": [{"x": "y",
         except:
             pass
 
-
     print("pickle:", pickle_res)
     pickle.loads(pickle_res)
-
