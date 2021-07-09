@@ -42,7 +42,7 @@ python -m pickle output.pkl
 
 ### What is pickle?
 
-[RFTM](https://docs.python.org/3/library/pickle.html).
+[RTFM](https://docs.python.org/3/library/pickle.html).
 
 ### Why?
 
