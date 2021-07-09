@@ -13,7 +13,7 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -d, --dis             disassamble the pickle output
-  -r, --eval            run the pickle output
+  -r, --eval            run the pickle bytecode
   -o OUTPUT, --output OUTPUT
                         Write output pickle to file
 ```
@@ -32,6 +32,12 @@ But it won't run the pickle for you. If you want you should add `-r` option, or 
 python -m pickle output.pkl
 ```
 
+## Todo
+
+- [ ] Operators (compare, unary, binary, subscript)
+- [ ] Macros (directly using GLOBAL, OBJECT bytecodes)
+- [ ] Support function (optional)
+
 ## FAQ
 
 ### What is pickle?
@@ -46,7 +52,7 @@ It's cool.
 
 No, not at all, it's definitely useless.
 
-### So, is this a grabage?
+### So, is this a garbage?
 
-Yep, it's a cool garbage.
+Yep, a cool garbage.
 
