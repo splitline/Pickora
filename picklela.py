@@ -7,35 +7,23 @@ def is_builtins(name):
     return name in __builtins__.__dir__()
 
 
-pickle_res = b''
+bytecode = b''
 memo_manager = MemoManager()
 
 
 def init_builtin_memos():
     def put_memo(name, index):
-        global pickle_res
-        pickle_res += b'c__builtin__\n' + name.encode() + b'\n'
-        pickle_res += pickle.PUT
-        pickle_res += str(index).encode() + b'\n'
+        global bytecode
+        bytecode += b'c__builtin__\n' + name.encode() + b'\n'
+        bytecode += pickle.PUT
+        bytecode += str(index).encode() + b'\n'
 
     for name in ['getattr', '__import__']:
         put_memo(name, memo_manager.get_memo(name).index)
 
 
 def traverse(node):
-    global pickle_res
-
-    def call_function(func, args):
-        global pickle_res
-        if type(func) == str:
-            func = ast.Name(id=func, ctx=ast.Load())
-        traverse(func)
-        pickle_res += pickle.MARK
-        for arg in args:
-            if getattr(arg, '__module__', None) != 'ast':
-                arg = ast.Constant(value=arg)
-            traverse(arg)
-        pickle_res += pickle.TUPLE + pickle.REDUCE
+    global bytecode
 
     node_type = type(node)
     if node_type == ast.Assign:
@@ -43,16 +31,16 @@ def traverse(node):
         traverse(value)
         for target in targets:
             memo = memo_manager.get_memo(target.id)
-            pickle_res += pickle.PUT
-            pickle_res += str(memo.index).encode() + b'\n'
+            bytecode += pickle.PUT
+            bytecode += str(memo.index).encode() + b'\n'
 
     elif node_type == ast.Name:
         if memo_manager.contains(node.id):
             memo = memo_manager.get_memo(node.id)
-            pickle_res += pickle.GET
-            pickle_res += str(memo.index).encode() + b'\n'
+            bytecode += pickle.GET
+            bytecode += str(memo.index).encode() + b'\n'
         elif is_builtins(node.id):
-            pickle_res += b'c__builtin__\n' + node.id.encode() + b'\n'
+            bytecode += b'c__builtin__\n' + node.id.encode() + b'\n'
         else:
             raise NameError(f"name '{node.id}' is not defined.")
 
@@ -60,59 +48,67 @@ def traverse(node):
         traverse(node.value)
 
     elif node_type == ast.Call:
-        call_function(node.func, node.args)
+        func, args = node.func, node.args
+        traverse(func)
+        bytecode += pickle.MARK
+        for arg in args:
+            traverse(arg)
+        bytecode += pickle.TUPLE + pickle.REDUCE
 
     elif node_type == ast.Constant:
         if type(node.value) == int:
-            pickle_res += pickle.INT + str(node.value).encode() + b'\n'
+            bytecode += pickle.INT + str(node.value).encode() + b'\n'
         elif type(node.value) == float:
-            pickle_res += pickle.FLOAT + str(node.value).encode() + b'\n'
+            bytecode += pickle.FLOAT + str(node.value).encode() + b'\n'
         elif type(node.value) == str:
-            pickle_res += pickle.UNICODE + node.value.encode('unicode_escape') + b'\n'
+            bytecode += pickle.UNICODE + node.value.encode('unicode_escape') + b'\n'
         elif type(node.value) == bool:
-            pickle_res += pickle.NEWTRUE if node.value else pickle.NEWFALSE
+            bytecode += pickle.NEWTRUE if node.value else pickle.NEWFALSE
         elif type(node.value) == bytes:
-            pickle_res += pickle.BINBYTES + len(node.value).to_bytes(4, 'little') + node.value
+            bytecode += pickle.BINBYTES + len(node.value).to_bytes(4, 'little') + node.value
         elif node.value == None:
-            pickle_res += pickle.NONE
+            bytecode += pickle.NONE
         else:
             raise NotImplementedError(type(node.value))
 
     elif node_type == ast.List:
-        pickle_res += pickle.MARK
-        pickle_res += pickle.LIST
+        bytecode += pickle.MARK
+        bytecode += pickle.LIST
         for element in node.elts:
             traverse(element)
-            pickle_res += pickle.APPEND
+            bytecode += pickle.APPEND
 
     elif node_type == ast.Dict:
-        pickle_res += pickle.MARK
-        pickle_res += pickle.DICT
+        bytecode += pickle.MARK
+        bytecode += pickle.DICT
         assert(len(node.keys) == len(node.values))
         for key, val in zip(node.keys, node.values):
             traverse(key)
             traverse(val)
-            pickle_res += pickle.SETITEM
+            bytecode += pickle.SETITEM
 
     elif node_type == ast.Attribute:
-        # TODO
-        pass
+        traverse(ast.Name(id='getattr', ctx=ast.Load()))
+        bytecode += pickle.MARK
+        traverse(node.value)
+        traverse(ast.Constant(value=node.attr))
+        bytecode += pickle.TUPLE + pickle.REDUCE
 
     elif node_type == ast.ImportFrom:
         for alias in node.names:
-            pickle_res += f'c{node.module}\n{alias.name}\n'.encode()
+            bytecode += f'c{node.module}\n{alias.name}\n'.encode()
             memo = memo_manager.get_memo(alias.name)
-            pickle_res += pickle.PUT
-            pickle_res += str(memo.index).encode() + b'\n'
+            bytecode += pickle.PUT
+            bytecode += str(memo.index).encode() + b'\n'
 
     elif node_type == ast.Import:
-        # We don't really need to import modules
-        pass
+        # We don't need to really import a module
         # for alias in node.names:
         #     call_function('__import__', [alias.name])
         #     memo = memo_manager.get_memo(alias.name)
-        #     pickle_res += pickle.PUT
-        #     pickle_res += str(memo.index).encode() + b'\n'
+        #     bytecode += pickle.PUT
+        #     bytecode += str(memo.index).encode() + b'\n'
+        pass
 
     else:
         raise NotImplementedError(node_type)
@@ -129,14 +125,15 @@ if __name__ == "__main__":
     for node in tree.body:
         traverse(node)
 
-    pickle_res += pickle.STOP
+    bytecode += pickle.STOP
 
     if DEBUG:
         import pickletools
         try:
-            pickletools.dis(pickle_res)
+            # pickletools.dis(bytecode)
+            pass
         except:
             pass
 
-    print("pickle:", pickle_res)
-    pickle.loads(pickle_res)
+    print("pickle:", bytecode)
+    pickle.loads(bytecode)
