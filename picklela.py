@@ -45,7 +45,6 @@ def traverse(node):
             memo = memo_manager.get_memo(target.id)
             pickle_res += pickle.PUT
             pickle_res += str(memo.index).encode() + b'\n'
-        print(targets, value)
 
     elif node_type == ast.Name:
         if memo_manager.contains(node.id):
@@ -70,6 +69,14 @@ def traverse(node):
             pickle_res += pickle.FLOAT + str(node.value).encode() + b'\n'
         elif type(node.value) == str:
             pickle_res += pickle.UNICODE + node.value.encode('unicode_escape') + b'\n'
+        elif type(node.value) == bool:
+            pickle_res += pickle.NEWTRUE if node.value else pickle.NEWFALSE
+        elif type(node.value) == bytes:
+            pickle_res += pickle.BINBYTES + len(node.value).to_bytes(4, 'little') + node.value
+        elif node.value == None:
+            pickle_res += pickle.NONE
+        else:
+            raise NotImplementedError(type(node.value))
 
     elif node_type == ast.List:
         pickle_res += pickle.MARK
@@ -110,17 +117,9 @@ def traverse(node):
     else:
         raise NotImplementedError(node_type)
 
-if __name__ == "__main__":
-    source = '''
-from math import pi, e
-# base = 2
-# exp = 10
-# res = pow(base, exp)
-# print(base, "**", exp, "=", res)
-# print(list(map(hex,[pow(2, 8), pow(2,16), pow(2,32)])))
-print(pi, e)
-'''
 
+if __name__ == "__main__":
+    source = open("test_source.py", 'rb').read()
     DEBUG = True
     tree = ast.parse(source)
     if DEBUG:
