@@ -1,7 +1,7 @@
 class Memo():
     def __init__(self, index, is_module=False):
         self.index = index
-        self.is_module = is_module
+        # self.is_module = is_module
 
 
 class MemoManager:
@@ -14,7 +14,6 @@ class MemoManager:
 
     def get_memo(self, name, is_module=False) -> Memo:
         if name in self.name_to_memo:
-            self.name_to_memo[name].is_module = is_module
             return self.name_to_memo[name]
 
         self.name_to_memo[name] = Memo(self.current_index, is_module)

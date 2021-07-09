@@ -69,7 +69,14 @@ def traverse(node):
         elif node.value == None:
             bytecode += pickle.NONE
         else:
-            raise NotImplementedError(type(node.value))
+            # I am not sure if there are types I didn't implement 🤔
+            raise NotImplementedError("Type:", type(node.value))
+
+    elif node_type == ast.Tuple:
+        bytecode += pickle.MARK
+        for element in node.elts:
+            traverse(element)
+        bytecode += pickle.TUPLE
 
     elif node_type == ast.List:
         bytecode += pickle.MARK
@@ -102,16 +109,20 @@ def traverse(node):
             bytecode += str(memo.index).encode() + b'\n'
 
     elif node_type == ast.Import:
-        # We don't need to really import a module
-        # for alias in node.names:
-        #     call_function('__import__', [alias.name])
-        #     memo = memo_manager.get_memo(alias.name)
-        #     bytecode += pickle.PUT
-        #     bytecode += str(memo.index).encode() + b'\n'
-        pass
+        for alias in node.names:
+            # call __import__
+            traverse(ast.Name(id='__import__', ctx=ast.Load()))
+            bytecode += pickle.MARK
+            traverse(ast.Constant(value=alias.name))
+            bytecode += pickle.TUPLE + pickle.REDUCE
 
+            # store to memo
+            memo = memo_manager.get_memo(alias.name)
+            bytecode += pickle.PUT
+            bytecode += str(memo.index).encode() + b'\n'
     else:
-        raise NotImplementedError(node_type)
+        print(node.lineno)
+        raise NotImplementedError(node_type.__name__ + " syntax")
 
 
 if __name__ == "__main__":
@@ -130,7 +141,7 @@ if __name__ == "__main__":
     if DEBUG:
         import pickletools
         try:
-            # pickletools.dis(bytecode)
+            pickletools.dis(bytecode)
             pass
         except:
             pass
