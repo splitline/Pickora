@@ -1,3 +1,5 @@
+import builtins
+
 class Memo():
     def __init__(self, index, is_module=False):
         self.index = index
@@ -21,3 +23,5 @@ class MemoManager:
         self.current_index += 1
         return self.name_to_memo[name]
 
+def is_builtins(name):
+    return name in builtins.__dir__()
