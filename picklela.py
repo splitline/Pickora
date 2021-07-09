@@ -1,6 +1,6 @@
 import ast
 import pickle
-from memo import Memo, MemoManager
+from helper import MemoManager
 
 
 def is_builtins(name):
@@ -11,11 +11,33 @@ pickle_res = b''
 memo_manager = MemoManager()
 
 
+def init_builtin_memos():
+    def put_memo(name, index):
+        global pickle_res
+        pickle_res += b'c__builtin__\n' + name.encode() + b'\n'
+        pickle_res += pickle.PUT
+        pickle_res += str(index).encode() + b'\n'
+
+    for name in ['getattr', '__import__']:
+        put_memo(name, memo_manager.get_memo(name).index)
+
+
 def traverse(node):
     global pickle_res
 
-    node_type = type(node)
+    def call_function(func, args):
+        global pickle_res
+        if type(func) == str:
+            func = ast.Name(id=func, ctx=ast.Load())
+        traverse(func)
+        pickle_res += pickle.MARK
+        for arg in args:
+            if getattr(arg, '__module__', None) != 'ast':
+                arg = ast.Constant(value=arg)
+            traverse(arg)
+        pickle_res += pickle.TUPLE + pickle.REDUCE
 
+    node_type = type(node)
     if node_type == ast.Assign:
         targets, value = node.targets, node.value
         traverse(value)
@@ -39,11 +61,7 @@ def traverse(node):
         traverse(node.value)
 
     elif node_type == ast.Call:
-        traverse(node.func)
-        pickle_res += pickle.MARK
-        for arg in node.args:
-            traverse(arg)
-        pickle_res += pickle.TUPLE + pickle.REDUCE
+        call_function(node.func, node.args)
 
     elif node_type == ast.Constant:
         if type(node.value) == int:
@@ -73,23 +91,42 @@ def traverse(node):
         # TODO
         pass
 
+    elif node_type == ast.ImportFrom:
+        for alias in node.names:
+            pickle_res += f'c{node.module}\n{alias.name}\n'.encode()
+            memo = memo_manager.get_memo(alias.name)
+            pickle_res += pickle.PUT
+            pickle_res += str(memo.index).encode() + b'\n'
+
+    elif node_type == ast.Import:
+        # We don't really need to import modules
+        pass
+        # for alias in node.names:
+        #     call_function('__import__', [alias.name])
+        #     memo = memo_manager.get_memo(alias.name)
+        #     pickle_res += pickle.PUT
+        #     pickle_res += str(memo.index).encode() + b'\n'
+
+    else:
+        raise NotImplementedError(node_type)
 
 if __name__ == "__main__":
     source = '''
-math = __import__("math")
-base = 2
-exp = 10
-res = pow(base, exp)
-print(base, "**", exp, "=", res)
-print(list(map(hex,[pow(2, 8), pow(2,16), pow(2,32)])))
-print(getattr(math, 'pi'))
+from math import pi, e
+# base = 2
+# exp = 10
+# res = pow(base, exp)
+# print(base, "**", exp, "=", res)
+# print(list(map(hex,[pow(2, 8), pow(2,16), pow(2,32)])))
+print(pi, e)
 '''
-    DEBUG = True
 
+    DEBUG = True
     tree = ast.parse(source)
     if DEBUG:
         print(ast.dump(tree, indent=4))
 
+    init_builtin_memos()
     for node in tree.body:
         traverse(node)
 

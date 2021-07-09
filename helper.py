@@ -19,3 +19,4 @@ class MemoManager:
         self.name_to_memo[name] = Memo(self.current_index)
         self.current_index += 1
         return self.name_to_memo[name]
+
