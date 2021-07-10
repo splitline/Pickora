@@ -1,5 +1,23 @@
 import pickle
+import sys
 from compiler import Compiler
+from helper import PikoraError
+
+
+def excepthook(etype, value, tb):
+    if isinstance(value, PikoraError):
+        message, node, source = value.args
+        print("Compile error:")
+        print(" "+str(node.lineno).rjust(4) + " | " +
+              source.splitlines()[node.lineno-1])
+        print(" "*8+" "*node.col_offset + (node.end_col_offset-node.col_offset)*"^")
+        print(" "*4+f"{etype.__name__}: {message}")
+    else:
+        from traceback import print_exception
+        print_exception(etype, value, tb)
+
+
+sys.excepthook = excepthook
 
 if __name__ == "__main__":
     import argparse
@@ -10,7 +28,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output", type=str, help="Write output pickle to file")
     args = parser.parse_args()
 
-    source = open(args.file, 'rb').read()
+    source = open(args.file, 'r').read()
     compiler = Compiler(source)
 
     compiler.compile()

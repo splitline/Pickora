@@ -1,6 +1,15 @@
 import builtins
 import ast
 
+class PikoraError(Exception): pass
+
+class PickoraNameError(PikoraError):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+class PickoraNotImplementedError(PikoraError):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 class Memo():
     def __init__(self, index, is_module=False):
@@ -60,6 +69,6 @@ op_to_method = {
     ast.Is: "is_",
     ast.IsNot: "is_not",
     ast.In: "contains",
-    # ast.NotIn: "", 
+    # ast.NotIn: "",
     # TODO: operator module doensn't include `not in` method
 }

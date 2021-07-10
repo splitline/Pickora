@@ -1,8 +1,8 @@
 import ast
+import sys
 import pickle
 from functools import reduce
-from helper import MemoManager, is_builtins, op_to_method
-
+from helper import *
 
 class Compiler:
     def __init__(self, source):
@@ -67,7 +67,7 @@ class Compiler:
             elif is_builtins(node.id):
                 self.bytecode += self.find_class('__builtin__', node.id)
             else:
-                raise NameError(f"name '{node.id}' is not defined.")
+                raise PickoraNameError(f"name '{node.id}' is not defined.", node, self.source)
 
         elif node_type == ast.Expr:
             self.traverse(node.value)
@@ -96,7 +96,7 @@ class Compiler:
                 self.bytecode += pickle.NONE
             else:
                 # I am not sure if there are types I didn't implement 🤔
-                raise NotImplementedError("Type:", type(node.value))
+                raise PickoraNotImplementedError("Type:", type(node.value))
 
         elif node_type == ast.Tuple:
             self.bytecode += pickle.MARK
@@ -124,8 +124,8 @@ class Compiler:
             # a>b>c -> all((a>b, b>c))
             self.bytecode += self.find_class("__builtin__", 'all')
             self.bytecode += pickle.MARK
-            
-            self.bytecode += pickle.MARK # tuple mark
+
+            self.bytecode += pickle.MARK  # TUPLE mark
             left = node.left
             for _op, right in zip(node.ops, node.comparators):
                 op = type(_op)
@@ -135,10 +135,11 @@ class Compiler:
                     (left, right)
                 )
                 left = right
-            self.bytecode += pickle.TUPLE # /tuple
+            self.bytecode += pickle.TUPLE  # /TUPLE
 
             self.bytecode += pickle.TUPLE + pickle.REDUCE
 
+        # TODO: BoolOp
         elif node_type in [ast.BinOp, ast.UnaryOp]:
             op = type(node.op)
             assert(op in op_to_method)
@@ -175,5 +176,4 @@ class Compiler:
                 self.put_memo(alias.name)
 
         else:
-            # print(node.lineno)
-            raise NotImplementedError(node_type.__name__ + " syntax")
+            raise PickoraNotImplementedError(node_type.__name__ + " syntax", node, self.source)
