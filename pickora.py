@@ -2,16 +2,21 @@ import pickle
 import sys
 from compiler import Compiler
 from helper import PickoraError
+import ast
 
 
 def excepthook(etype, value, tb):
     if isinstance(value, PickoraError):
-        message, node, source = value.args
-        print("Compile error:")
-        print(" "+str(node.lineno).rjust(4) + " | " +
-              source.splitlines()[node.lineno-1])
-        print(" "*8+" "*node.col_offset + (node.end_col_offset-node.col_offset)*"^")
-        print(" "*4+f"{etype.__name__}: {message}")
+        try:
+            message, node, source = value.args
+            print("Compile error:")
+            print(" "+str(node.lineno).rjust(4) + " | " +
+                source.splitlines()[node.lineno-1])
+            print(" "*8+" "*node.col_offset + (node.end_col_offset-node.col_offset)*"^")
+            print(" "*4+f"{etype.__name__}: {message}")
+        except:
+            from traceback import print_exception
+            print_exception(etype, value, tb)
     else:
         from traceback import print_exception
         print_exception(etype, value, tb)

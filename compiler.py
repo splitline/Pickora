@@ -14,9 +14,13 @@ class Compiler:
     def compile(self):
         tree = ast.parse(self.source)
         if __import__('os').getenv("DEBUG"):
-            print(ast.dump(tree, indent=4))
+            kwargs = {'indent': 4} if sys.version_info >= (3, 9) else {}
+            print(ast.dump(tree, **kwargs))
         for node in tree.body:
             self.traverse(node)
+
+        if self.bytecode == b'':
+            self.bytecode += pickle.NONE
         self.bytecode += pickle.STOP
         self.bytecode = pickletools.optimize(self.bytecode)
 
@@ -31,7 +35,6 @@ class Compiler:
                 self.put_memo(name)
             else:
                 self.put_memo((modname, name))
-
 
     def put_memo(self, name):
         index = self.memo_manager.get_memo(name).index
@@ -152,6 +155,10 @@ class Compiler:
 
         elif node_type == ast.Subscript:
             self.call_function(('operator', "getitem"), (node.value, node.slice))
+
+        # compatible with Python 3.8
+        elif node_type == ast.Index:
+            self.traverse(node.value)
 
         elif node_type == ast.Slice:
             args = (node.lower, node.upper)
