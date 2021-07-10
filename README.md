@@ -32,9 +32,9 @@ But it won't run the pickle for you. If you want you should add `-r` option, or 
 python -m pickle output.pkl
 ```
 
-## Todo
+## Todos
 
-- [ ] Operators (compare, unary, binary, subscript)
+- [ ] Operators (compare, <s>unary</s>, binary, subscript)
 - [ ] Unpacking assignment
 - [ ] Function call with kwargs
 - [ ] Macros (directly using GLOBAL, OBJECT bytecodes)

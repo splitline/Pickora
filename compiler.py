@@ -1,12 +1,12 @@
 import ast
 import pickle
-from helper import MemoManager, is_builtins
+from helper import MemoManager, is_builtins, op_to_method
 
 
 class Compiler:
     def __init__(self, source):
         self.source = source
-        self.bytecode = b''
+        self.bytecode = bytes()
         self.memo_manager = MemoManager()
 
         for name in ['getattr', '__import__']:
@@ -15,10 +15,17 @@ class Compiler:
 
     def compile(self):
         tree = ast.parse(self.source)
-        # print(ast.dump(tree, indent=4))
+        print(ast.dump(tree, indent=4))
         for node in tree.body:
             self.traverse(node)
         self.bytecode += pickle.STOP
+
+    def getattr(self, obj, attr):
+        self.traverse(ast.Name(id='getattr', ctx=ast.Load()))
+        self.bytecode += pickle.MARK
+        self.traverse(obj)
+        self.traverse(ast.Constant(value=attr))
+        self.bytecode += pickle.TUPLE + pickle.REDUCE
 
     def find_class(self, modname, name):
         return f'c{modname}\n{name}\n'.encode()
@@ -35,9 +42,6 @@ class Compiler:
             self.traverse(value)
             for target in targets:
                 self.put_memo(target.id)
-                # memo = self.memo_manager.get_memo(target.id)
-                # self.bytecode += pickle.PUT
-                # self.bytecode += str(memo.index).encode() + b'\n'
 
         elif node_type == ast.Name:
             if self.memo_manager.contains(node.id):
@@ -45,7 +49,7 @@ class Compiler:
                 self.bytecode += pickle.GET
                 self.bytecode += str(memo.index).encode() + b'\n'
             elif is_builtins(node.id):
-                self.bytecode += b'c__builtin__\n' + node.id.encode() + b'\n'
+                self.bytecode += self.find_class('__builtin__', node.id)
             else:
                 raise NameError(f"name '{node.id}' is not defined.")
 
@@ -100,21 +104,26 @@ class Compiler:
                 self.traverse(val)
                 self.bytecode += pickle.SETITEM
 
-        elif node_type == ast.Attribute:
-            self.traverse(ast.Name(id='getattr', ctx=ast.Load()))
+        elif node_type == ast.BinOp:
+            op = type(node.op)
+            assert(op in op_to_method)
+
+            # # magic methods are really magic, I don't understand it well :(
+            # self.getattr(node.left, '__'+op_to_method.get(op)+'__') 
+            self.bytecode += self.find_class("operator", op_to_method.get(op))
             self.bytecode += pickle.MARK
-            self.traverse(node.value)
-            self.traverse(ast.Constant(value=node.attr))
+            self.traverse(node.left)
+            self.traverse(node.right)
             self.bytecode += pickle.TUPLE + pickle.REDUCE
+            
+
+        elif node_type == ast.Attribute:
+            self.getattr(node.value, node.attr)
 
         elif node_type == ast.ImportFrom:
             for alias in node.names:
-                # self.bytecode += f'c{node.module}\n{alias.name}\n'.encode()
                 self.bytecode += self.find_class(node.module, alias.name)
                 self.put_memo(alias.name)
-                # memo = self.memo_manager.get_memo(alias.name)
-                # self.bytecode += pickle.PUT
-                # self.bytecode += str(memo.index).encode() + b'\n'
 
         elif node_type == ast.Import:
             for alias in node.names:
@@ -124,11 +133,8 @@ class Compiler:
                 self.traverse(ast.Constant(value=alias.name))
                 self.bytecode += pickle.TUPLE + pickle.REDUCE
 
-                # store to memo
                 self.put_memo(alias.name)
-                # memo = self.memo_manager.get_memo(alias.name)
-                # self.bytecode += pickle.PUT
-                # self.bytecode += str(memo.index).encode() + b'\n'
+
         else:
             print(node.lineno)
             raise NotImplementedError(node_type.__name__ + " syntax")

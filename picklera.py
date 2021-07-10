@@ -1,4 +1,3 @@
-import ast
 import pickle
 from compiler import Compiler
 

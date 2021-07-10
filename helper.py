@@ -1,8 +1,11 @@
 import builtins
+import ast
+
 
 class Memo():
     def __init__(self, index, is_module=False):
         self.index = index
+
 
 class MemoManager:
     def __init__(self):
@@ -20,5 +23,23 @@ class MemoManager:
         self.current_index += 1
         return self.name_to_memo[name]
 
+
 def is_builtins(name):
     return name in builtins.__dir__()
+
+
+op_to_method = {
+    ast.Add: 'add',
+    ast.Sub: 'sub',
+    ast.Mult: 'mul',
+    ast.Div: 'truediv',
+    ast.FloorDiv: 'floordiv',
+    ast.Mod: 'mod',
+    ast.Pow: 'pow',
+    ast.LShift: 'lshift',
+    ast.RShift: 'rshift',
+    ast.BitOr: 'or',
+    ast.BitXor: 'xor',
+    ast.BitAnd: 'and',
+    ast.MatMult: 'matmul',
+}
