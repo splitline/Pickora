@@ -1,13 +1,13 @@
 import builtins
 import ast
 
-class PikoraError(Exception): pass
+class PickoraError(Exception): pass
 
-class PickoraNameError(PikoraError):
+class PickoraNameError(PickoraError):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-class PickoraNotImplementedError(PikoraError):
+class PickoraNotImplementedError(PickoraError):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

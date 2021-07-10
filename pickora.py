@@ -1,11 +1,11 @@
 import pickle
 import sys
 from compiler import Compiler
-from helper import PikoraError
+from helper import PickoraError
 
 
 def excepthook(etype, value, tb):
-    if isinstance(value, PikoraError):
+    if isinstance(value, PickoraError):
         message, node, source = value.args
         print("Compile error:")
         print(" "+str(node.lineno).rjust(4) + " | " +
