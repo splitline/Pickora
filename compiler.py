@@ -1,7 +1,7 @@
 import ast
 import sys
 import pickle
-from functools import reduce
+import pickletools
 from helper import *
 
 
@@ -11,10 +11,6 @@ class Compiler:
         self.bytecode = bytes()
         self.memo_manager = MemoManager()
 
-        for name in ['getattr', '__import__']:
-            self.bytecode += self.find_class('__builtin__', name)
-            self.put_memo(name)
-
     def compile(self):
         tree = ast.parse(self.source)
         if __import__('os').getenv("DEBUG"):
@@ -22,16 +18,20 @@ class Compiler:
         for node in tree.body:
             self.traverse(node)
         self.bytecode += pickle.STOP
-
-    def getattr(self, obj, attr):
-        self.traverse(ast.Name(id='getattr', ctx=ast.Load()))
-        self.bytecode += pickle.MARK
-        self.traverse(obj)
-        self.traverse(ast.Constant(value=attr))
-        self.bytecode += pickle.TUPLE + pickle.REDUCE
+        self.bytecode = pickletools.optimize(self.bytecode)
 
     def find_class(self, modname, name):
-        return f'c{modname}\n{name}\n'.encode()
+        if self.memo_manager.contains((modname, name)):
+            memo = self.memo_manager.get_memo((modname, name))
+            self.bytecode += pickle.GET
+            self.bytecode += str(memo.index).encode() + b'\n'
+        else:
+            self.bytecode += f'c{modname}\n{name}\n'.encode()
+            if modname == '__builtin__':
+                self.put_memo(name)
+            else:
+                self.put_memo((modname, name))
+
 
     def put_memo(self, name):
         index = self.memo_manager.get_memo(name).index
@@ -40,14 +40,14 @@ class Compiler:
 
     def call_function(self, func, args):
         if type(func) == tuple:
-            self.bytecode += self.find_class(*func)
+            self.find_class(*func)
         else:
             if type(func) == str:
                 func = ast.Name(id=func, ctx=ast.Load())
             self.traverse(func)
         self.bytecode += pickle.MARK
         for arg in args:
-            if getattr(arg, '__module__', None) != 'ast':
+            if not isinstance(arg, ast.AST):
                 arg = ast.Constant(value=arg)
             self.traverse(arg)
         self.bytecode += pickle.TUPLE + pickle.REDUCE
@@ -66,7 +66,7 @@ class Compiler:
                 self.bytecode += pickle.GET
                 self.bytecode += str(memo.index).encode() + b'\n'
             elif is_builtins(node.id):
-                self.bytecode += self.find_class('__builtin__', node.id)
+                self.find_class('__builtin__', node.id)
             else:
                 raise PickoraNameError(f"name '{node.id}' is not defined.", node, self.source)
 
@@ -74,12 +74,7 @@ class Compiler:
             self.traverse(node.value)
 
         elif node_type == ast.Call:
-            func, args = node.func, node.args
-            self.traverse(func)
-            self.bytecode += pickle.MARK
-            for arg in args:
-                self.traverse(arg)
-            self.bytecode += pickle.TUPLE + pickle.REDUCE
+            self.call_function(node.func, node.args)
 
         elif node_type == ast.Constant:
             if type(node.value) == int:
@@ -123,7 +118,7 @@ class Compiler:
 
         elif node_type == ast.Compare:
             # a>b>c -> all((a>b, b>c))
-            self.bytecode += self.find_class("__builtin__", 'all')
+            self.find_class("__builtin__", 'all')
             self.bytecode += pickle.MARK
 
             self.bytecode += pickle.MARK  # TUPLE mark
@@ -147,16 +142,13 @@ class Compiler:
 
             # # magic methods are really magic, I don't understand it well :(
             # self.getattr(node.left, '__'+op_to_method.get(op)+'__')
-            self.bytecode += self.find_class("operator", op_to_method.get(op))
-            self.bytecode += pickle.MARK
-
+            args = tuple()
             if node_type == ast.BinOp:
-                self.traverse(node.left)
-                self.traverse(node.right)
+                args = (node.left, node.right)
             elif node_type == ast.UnaryOp:
-                self.traverse(node.operand)
+                args = (node.operand,)
 
-            self.bytecode += pickle.TUPLE + pickle.REDUCE
+            self.call_function(("operator", op_to_method.get(op)), args)
 
         elif node_type == ast.Subscript:
             self.call_function(('operator', "getitem"), (node.value, node.slice))
@@ -168,21 +160,16 @@ class Compiler:
             self.call_function(('__builtin__', 'slice'), args)
 
         elif node_type == ast.Attribute:
-            self.getattr(node.value, node.attr)
+            self.call_function('getattr', (node.value, node.attr))
 
         elif node_type == ast.ImportFrom:
             for alias in node.names:
-                self.bytecode += self.find_class(node.module, alias.name)
+                self.find_class(node.module, alias.name)
                 self.put_memo(alias.name)
 
         elif node_type == ast.Import:
             for alias in node.names:
-                # call __import__
-                self.traverse(ast.Name(id='__import__', ctx=ast.Load()))
-                self.bytecode += pickle.MARK
-                self.traverse(ast.Constant(value=alias.name))
-                self.bytecode += pickle.TUPLE + pickle.REDUCE
-
+                self.call_function('__import__', (alias.name, ))
                 self.put_memo(alias.name)
 
         else:
