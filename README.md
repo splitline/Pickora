@@ -35,8 +35,10 @@ python -m pickle output.pkl
 ## Todo
 
 - [ ] Operators (compare, unary, binary, subscript)
+- [ ] Unpacking assignment
+- [ ] Function call with kwargs
 - [ ] Macros (directly using GLOBAL, OBJECT bytecodes)
-- [ ] Support function (optional)
+- [ ] lambda / function (optional)
 
 ## FAQ
 
