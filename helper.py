@@ -49,4 +49,17 @@ op_to_method = {
     ast.Not: 'not_',
     ast.UAdd: 'pos',
     ast.USub: 'neg',
+
+    # Compare
+    ast.Eq: "eq",
+    ast.NotEq: "ne",
+    ast.Lt: "lt",
+    ast.LtE: "le",
+    ast.Gt: "gt",
+    ast.GtE: "ge",
+    ast.Is: "is_",
+    ast.IsNot: "is_not",
+    ast.In: "contains",
+    # ast.NotIn: "", 
+    # TODO: operator module doensn't include `not in` method
 }

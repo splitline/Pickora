@@ -1,5 +1,6 @@
 import ast
 import pickle
+from functools import reduce
 from helper import MemoManager, is_builtins, op_to_method
 
 
@@ -15,7 +16,8 @@ class Compiler:
 
     def compile(self):
         tree = ast.parse(self.source)
-        print(ast.dump(tree, indent=4))
+        if __import__('os').getenv("DEBUG"):
+            print(ast.dump(tree, indent=4))
         for node in tree.body:
             self.traverse(node)
         self.bytecode += pickle.STOP
@@ -34,6 +36,20 @@ class Compiler:
         index = self.memo_manager.get_memo(name).index
         self.bytecode += pickle.PUT
         self.bytecode += str(index).encode() + b'\n'
+
+    def call_function(self, func, args):
+        if type(func) == tuple:
+            self.bytecode += self.find_class(*func)
+        else:
+            if type(func) == str:
+                func = ast.Name(id=func, ctx=ast.Load())
+            self.traverse(func)
+        self.bytecode += pickle.MARK
+        for arg in args:
+            if getattr(arg, '__module__', None) != 'ast':
+                arg = ast.Constant(value=arg)
+            self.traverse(arg)
+        self.bytecode += pickle.TUPLE + pickle.REDUCE
 
     def traverse(self, node):
         node_type = type(node)
@@ -104,6 +120,25 @@ class Compiler:
                 self.traverse(val)
                 self.bytecode += pickle.SETITEM
 
+        elif node_type == ast.Compare:
+            # a>b>c -> all((a>b, b>c))
+            self.bytecode += self.find_class("__builtin__", 'all')
+            self.bytecode += pickle.MARK
+            
+            self.bytecode += pickle.MARK # tuple mark
+            left = node.left
+            for _op, right in zip(node.ops, node.comparators):
+                op = type(_op)
+                assert(op in op_to_method)
+                self.call_function(
+                    ('operator', op_to_method.get(op)),
+                    (left, right)
+                )
+                left = right
+            self.bytecode += pickle.TUPLE # /tuple
+
+            self.bytecode += pickle.TUPLE + pickle.REDUCE
+
         elif node_type in [ast.BinOp, ast.UnaryOp]:
             op = type(node.op)
             assert(op in op_to_method)
@@ -140,5 +175,5 @@ class Compiler:
                 self.put_memo(alias.name)
 
         else:
-            print(node.lineno)
+            # print(node.lineno)
             raise NotImplementedError(node_type.__name__ + " syntax")
