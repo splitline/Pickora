@@ -21,11 +21,11 @@ sys.excepthook = excepthook
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="A toy compiler that can convert Python scripts to pickle bytecode.")
     parser.add_argument("file", help="the Python script to compile")
-    parser.add_argument("-d", "--dis", help="disassamble the pickle output", action="store_true")
-    parser.add_argument("-r", "--eval", help="run the pickle output", action="store_true")
-    parser.add_argument("-o", "--output", type=str, help="Write output pickle to file")
+    parser.add_argument("-d", "--dis", help="disassamble compiled pickle bytecode", action="store_true")
+    parser.add_argument("-r", "--eval", "--run", help="run the pickle bytecode", action="store_true")
+    parser.add_argument("-o", "--output", type=str, help="Write compiled pickle to file")
     args = parser.parse_args()
 
     source = open(args.file, 'r').read()

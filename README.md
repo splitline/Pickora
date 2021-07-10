@@ -2,20 +2,28 @@
 
 A small compiler that can convert Python scripts to pickle bytecode. 
 
+## Requirements
+
+- Python 3.8+
+
+No third-party modules are required.
+
 ## Usage
 
 ```
 usage: pickora.py [-h] [-d] [-r] [-o OUTPUT] file
+
+A toy compiler that can convert Python scripts to pickle bytecode.
 
 positional arguments:
   file                  the Python script to compile
 
 optional arguments:
   -h, --help            show this help message and exit
-  -d, --dis             disassamble the pickle output
-  -r, --eval            run the pickle bytecode
+  -d, --dis             disassamble compiled pickle bytecode
+  -r, --eval, --run     run the pickle bytecode
   -o OUTPUT, --output OUTPUT
-                        Write output pickle to file
+                        Write compiled pickle to file
 ```
 
 For exmple, you can run:
