@@ -4,6 +4,7 @@ import pickle
 from functools import reduce
 from helper import *
 
+
 class Compiler:
     def __init__(self, source):
         self.source = source
@@ -156,6 +157,15 @@ class Compiler:
                 self.traverse(node.operand)
 
             self.bytecode += pickle.TUPLE + pickle.REDUCE
+
+        elif node_type == ast.Subscript:
+            self.call_function(('operator', "getitem"), (node.value, node.slice))
+
+        elif node_type == ast.Slice:
+            args = (node.lower, node.upper)
+            if hasattr(node, 'step'):
+                args += (node.step, )
+            self.call_function(('__builtin__', 'slice'), args)
 
         elif node_type == ast.Attribute:
             self.getattr(node.value, node.attr)
