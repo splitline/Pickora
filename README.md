@@ -1,11 +1,11 @@
-# Picklera 🐰
+# Pickora 🐰
 
 A small compiler that can convert Python scripts to pickle bytecode. 
 
 ## Usage
 
 ```
-usage: picklera.py [-h] [-d] [-r] [-o OUTPUT] file
+usage: pickora.py [-h] [-d] [-r] [-o OUTPUT] file
 
 positional arguments:
   file                  the Python script to compile
@@ -21,7 +21,7 @@ optional arguments:
 For exmple, you can run:
 
 ```sh
-python picklela.py -d samples/hello.py -o output.pkl
+python pickora.py -d samples/hello.py -o output.pkl
 ```
 
 to compile `samples/hello.py` and show the disassamble result of the compiled pickle bytecode. 
