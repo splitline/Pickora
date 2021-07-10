@@ -29,6 +29,7 @@ def is_builtins(name):
 
 
 op_to_method = {
+    # BinOp
     ast.Add: 'add',
     ast.Sub: 'sub',
     ast.Mult: 'mul',
@@ -42,4 +43,10 @@ op_to_method = {
     ast.BitXor: 'xor',
     ast.BitAnd: 'and',
     ast.MatMult: 'matmul',
+
+    # UnaryOp
+    ast.Invert: 'inv',
+    ast.Not: 'not_',
+    ast.UAdd: 'pos',
+    ast.USub: 'neg',
 }

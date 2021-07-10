@@ -104,18 +104,22 @@ class Compiler:
                 self.traverse(val)
                 self.bytecode += pickle.SETITEM
 
-        elif node_type == ast.BinOp:
+        elif node_type in [ast.BinOp, ast.UnaryOp]:
             op = type(node.op)
             assert(op in op_to_method)
 
             # # magic methods are really magic, I don't understand it well :(
-            # self.getattr(node.left, '__'+op_to_method.get(op)+'__') 
+            # self.getattr(node.left, '__'+op_to_method.get(op)+'__')
             self.bytecode += self.find_class("operator", op_to_method.get(op))
             self.bytecode += pickle.MARK
-            self.traverse(node.left)
-            self.traverse(node.right)
+
+            if node_type == ast.BinOp:
+                self.traverse(node.left)
+                self.traverse(node.right)
+            elif node_type == ast.UnaryOp:
+                self.traverse(node.operand)
+
             self.bytecode += pickle.TUPLE + pickle.REDUCE
-            
 
         elif node_type == ast.Attribute:
             self.getattr(node.value, node.attr)

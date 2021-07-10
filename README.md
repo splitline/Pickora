@@ -34,7 +34,7 @@ python -m pickle output.pkl
 
 ## Todos
 
-- [ ] Operators (compare, <s>unary</s>, binary, subscript)
+- [ ] Operators (compare, <s>unary</s>, <s>binary</s>, subscript)
 - [ ] Unpacking assignment
 - [ ] Function call with kwargs
 - [ ] Macros (directly using GLOBAL, OBJECT bytecodes)
