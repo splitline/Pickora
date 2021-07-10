@@ -26,9 +26,7 @@ class Compiler:
 
     def find_class(self, modname, name):
         if self.memo_manager.contains((modname, name)):
-            memo = self.memo_manager.get_memo((modname, name))
-            self.bytecode += pickle.GET
-            self.bytecode += str(memo.index).encode() + b'\n'
+            self.fetch_memo((modname, name))
         else:
             self.bytecode += f'c{modname}\n{name}\n'.encode()
             if modname == '__builtin__':
@@ -36,10 +34,20 @@ class Compiler:
             else:
                 self.put_memo((modname, name))
 
+    def fetch_memo(self, key):
+        index = self.memo_manager.get_memo(key).index
+        if index <= 0xff:
+            self.bytecode += pickle.BINGET + index.to_bytes(1, 'little')
+        else:
+            self.bytecode += pickle.LONG_BINGET + index.to_bytes(4, 'little')
+
     def put_memo(self, name):
         index = self.memo_manager.get_memo(name).index
-        self.bytecode += pickle.PUT
-        self.bytecode += str(index).encode() + b'\n'
+        if index <= 0xff:
+            self.bytecode += pickle.BINPUT + index.to_bytes(1, 'little')
+        else:
+            self.bytecode += pickle.LONG_BINPUT + index.to_bytes(4, 'little')
+        # self.bytecode += pickle.PUT + str(index).encode() + b'\n'
 
     def call_function(self, func, args):
         if type(func) == tuple:
@@ -65,9 +73,7 @@ class Compiler:
 
         elif node_type == ast.Name:
             if self.memo_manager.contains(node.id):
-                memo = self.memo_manager.get_memo(node.id)
-                self.bytecode += pickle.GET
-                self.bytecode += str(memo.index).encode() + b'\n'
+                self.fetch_memo(node.id)
             elif is_builtins(node.id):
                 self.find_class('__builtin__', node.id)
             else:
@@ -80,18 +86,34 @@ class Compiler:
             self.call_function(node.func, node.args)
 
         elif node_type == ast.Constant:
-            if type(node.value) == int:
-                self.bytecode += pickle.INT + str(node.value).encode() + b'\n'
-            elif type(node.value) == float:
-                self.bytecode += pickle.FLOAT + str(node.value).encode() + b'\n'
-            elif type(node.value) == str:
-                self.bytecode += pickle.UNICODE + node.value.encode('unicode_escape') + b'\n'
-            elif type(node.value) == bool:
-                self.bytecode += pickle.NEWTRUE if node.value else pickle.NEWFALSE
-            elif type(node.value) == bytes:
-                self.bytecode += pickle.BINBYTES + \
-                    len(node.value).to_bytes(4, 'little') + node.value
-            elif node.value == None:
+            val = node.value
+            const_type = type(val)
+
+            if const_type == int:
+                if 0 <= val <= 0xff:
+                    self.bytecode += pickle.BININT1 + val.to_bytes(1, 'little')
+                elif 0 <= val <= 0xffff:
+                    self.bytecode += pickle.BININT2 + val.to_bytes(2, 'little')
+                elif -0x80000000 <= val <= 0x7fffffff:
+                    self.bytecode += pickle.BININT + val.to_bytes(4, 'little', signed=True)
+                else:
+                    self.bytecode += pickle.INT + str(val).encode() + b'\n'
+            elif const_type == float:
+                self.bytecode += pickle.FLOAT + str(val).encode() + b'\n'
+            elif const_type == bool:
+                self.bytecode += pickle.NEWTRUE if val else pickle.NEWFALSE
+            elif const_type == str:
+                encoded = val.encode('utf-8', 'surrogatepass')
+                n = len(encoded)
+                self.bytecode += (pickle.SHORT_BINUNICODE + n.to_bytes(1, 'little')
+                                  if n <= 0xff
+                                  else pickle.BINUNICODE + n.to_bytes(4, 'little')) + encoded
+            elif const_type == bytes:
+                n = len(val)
+                self.bytecode += (pickle.SHORT_BINBYTES + n.to_bytes(1, 'little')
+                                  if n <= 0xff
+                                  else pickle.BINBYTES + n.to_bytes(4, 'little')) + node.value
+            elif val == None:
                 self.bytecode += pickle.NONE
             else:
                 # I am not sure if there are types I didn't implement 🤔

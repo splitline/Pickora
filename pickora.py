@@ -43,7 +43,6 @@ if __name__ == "__main__":
         import pickletools
         try:
             pickletools.dis(bytecode)
-            pass
         except:
             pass
 
@@ -52,7 +51,7 @@ if __name__ == "__main__":
         with open(args.output, 'wb') as out:
             out.write(bytecode)
     else:
-        print("Pickle =", bytecode)
+        print("pickle_bytecode =", bytecode)
 
     if args.eval:
         pickle.loads(bytecode)
