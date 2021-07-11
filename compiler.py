@@ -3,6 +3,7 @@ import sys
 import pickle
 import pickletools
 from helper import *
+from tokenize import generate_tokens
 
 
 class Compiler:
@@ -29,6 +30,9 @@ class Compiler:
             self.fetch_memo((modname, name))
         else:
             self.bytecode += f'c{modname}\n{name}\n'.encode()
+
+            # cache imported function / class to memo
+            # if it is only used once, these bytecode will be removed by `pickletools.optimize` later
             if modname == '__builtin__':
                 self.put_memo(name)
             else:
@@ -67,13 +71,22 @@ class Compiler:
         node_type = type(node)
         if node_type == ast.Assign:
             targets, value = node.targets, node.value
-            self.traverse(value)
             for target in targets:
-                # TODO: subscript assignment
-                if type(target) != ast.Name:
+                # TODO: attribute assignment
+                target_type = type(target)
+                if target_type == ast.Name:
+                    self.traverse(value)
+                    self.put_memo(target.id)
+                    self.bytecode += pickle.POP
+                elif target_type == ast.Subscript:
+                    # For `ITER[IDX] = NEW_VAL`:
+                    self.fetch_memo(target.value.id)  # get ITER
+                    self.traverse(target.slice)  # IDX
+                    self.traverse(value)  # NEW_VAL
+                    self.bytecode += pickle.SETITEM
+                else:
                     raise PickoraNotImplementedError(
                         f"{type(target).__name__} assignment", node, self.source)
-                self.put_memo(target.id)
 
         elif node_type == ast.Name:
             if self.memo_manager.contains(node.id):
@@ -187,13 +200,10 @@ class Compiler:
             self.traverse(node.value)
 
         elif node_type == ast.Slice:
-            args = (node.lower, node.upper)
-            if hasattr(node, 'step'):
-                args += (node.step, )
-            self.call_function(('__builtin__', 'slice'), args)
+            self.call_function(('__builtin__', 'slice'), (node.lower, node.upper, node.step))
 
         elif node_type == ast.Attribute:
-            self.call_function('getattr', (node.value, node.attr))
+            self.call_function(('__builtin__', 'getattr'), (node.value, node.attr))
 
         elif node_type == ast.ImportFrom:
             for alias in node.names:
@@ -205,7 +215,7 @@ class Compiler:
 
         elif node_type == ast.Import:
             for alias in node.names:
-                self.call_function('__import__', (alias.name, ))
+                self.call_function(('__builtin__', '__import__'), (alias.name, ))
                 if getattr(alias, 'asname') != None:
                     self.put_memo(alias.asname)
                 else:
