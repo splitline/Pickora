@@ -29,7 +29,7 @@ optional arguments:
 For exmple, you can run:
 
 ```sh
-python pickora.py -d samples/hello.py -o output.pkl
+python3 pickora.py -d samples/hello.py -o output.pkl
 ```
 
 to compile `samples/hello.py` and show the disassamble result of the compiled pickle bytecode. 
@@ -37,7 +37,7 @@ to compile `samples/hello.py` and show the disassamble result of the compiled pi
 But it won't run the pickle for you. If you want you should add `-r` option, or run the following command after compile:
 
 ```sh
-python -m pickle output.pkl
+python3 -m pickle output.pkl
 ```
 
 ## Todos
