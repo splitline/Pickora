@@ -165,19 +165,17 @@ class Compiler:
 
         elif node_type == ast.List:
             self.bytecode += pickle.MARK
-            self.bytecode += pickle.LIST
             for element in node.elts:
                 self.traverse(element)
-                self.bytecode += pickle.APPEND
+            self.bytecode += pickle.LIST
 
         elif node_type == ast.Dict:
             self.bytecode += pickle.MARK
-            self.bytecode += pickle.DICT
             assert(len(node.keys) == len(node.values))
             for key, val in zip(node.keys, node.values):
                 self.traverse(key)
                 self.traverse(val)
-                self.bytecode += pickle.SETITEM
+            self.bytecode += pickle.DICT
 
         elif node_type == ast.Compare:
             # a>b>c -> all((a>b, b>c))
