@@ -32,9 +32,9 @@ For exmple, you can run:
 python3 pickora.py -d samples/hello.py -o output.pkl
 ```
 
-to compile `samples/hello.py` and show the disassamble result of the compiled pickle bytecode. 
+to compile `samples/hello.py` to `output.pkl` and show the disassamble result of the compiled pickle bytecode. 
 
-But it won't run the pickle for you. If you want you should add `-r` option, or run the following command after compile:
+But this won't run the pickle for you. If you want you should add `-r` option, or execute the following command after compile:
 
 ```sh
 python3 -m pickle output.pkl
@@ -77,7 +77,7 @@ But if you want to do things like:
 ans = input("Yes/No: ")
 if ans == 'Yes':
   print("Great!")
-elif ans == 'No:
+elif ans == 'No':
   exit()
 ```
 It's still achievable! You can rewrite your code to this:
