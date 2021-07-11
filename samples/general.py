@@ -24,7 +24,7 @@ print("os.popen('date') =", run_cmd('date').read())
 
 
 # assignment tests
-l = [1, 2, 3]
+l = [1, 2, 3, 4]
 x = l[1] = y = z = 10
 l[2] = a = b = c = 100
 i = j = k = l[0] = 1000
@@ -33,14 +33,19 @@ print(x, y, z)
 print(a, b, c)
 print(i, j, k)
 
-l[0:3]= [9,8,7]
+l[0:3] = [9, 8, 7]
 print(l)
 
 d = {"x": 1, "y": 2, "z": 3}
 k = 'y'
 d[k] = 999
-d['owo']='new'
+d['owo'] = 'new'
 print(d)
 
 string.my_str = 'meow 🐱'
 print(string.my_str)
+
+# lambda tests
+print(list(map(lambda x, y: x+y, range(0, 10), range(100, 110))))
+f = lambda a, b=pow(2, 2): a+b
+print(f, f(5), f(5, 5))
