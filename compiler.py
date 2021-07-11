@@ -72,7 +72,7 @@ class Compiler:
         if node_type == ast.Assign:
             targets, value = node.targets, node.value
             for target in targets:
-                # TODO: attribute assignment
+                # TODO: unpacking assignment
                 target_type = type(target)
                 if target_type == ast.Name:
                     self.traverse(value)
@@ -80,15 +80,19 @@ class Compiler:
                     self.bytecode += pickle.POP
                 elif target_type == ast.Subscript:
                     # For `ITER[IDX] = NEW_VAL`:
-                    self.fetch_memo(target.value.id)  # get ITER
+                    self.traverse(target.value)  # get ITER
                     self.traverse(target.slice)  # IDX
                     self.traverse(value)  # NEW_VAL
                     self.bytecode += pickle.SETITEM
                 elif target_type == ast.Attribute:
                     # For `OBJ.ATTR = VAL`:
-                    self.fetch_memo(target.value.id)  # OBJ
-                    self.bytecode += pickle.MARK + pickle.EMPTY_DICT
+                    self.traverse(target.value)  # get OBJ
+                    self.bytecode += pickle.MARK
 
+                    # BUILD arg 1: {}
+                    self.bytecode += pickle.EMPTY_DICT
+
+                    # BUILD arg 2: {attr: val}
                     self.bytecode += pickle.MARK
                     self.traverse(ast.Constant(target.attr))  # ATTR
                     self.traverse(value)  # VAL
