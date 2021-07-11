@@ -45,9 +45,12 @@ python3 -m pickle output.pkl
 - [x] Operators (<s>compare</s>, <s>unary</s>, <s>binary</s>, <s>subscript</s>)
 - [ ] Unpacking assignment
 - [ ] Augmented assignment
-- [ ] Function call with kwargs
 - [ ] Macros (directly using GLOBAL, OBJECT bytecodes)
 - [ ] lambda / function (optional)
+
+### Impracticable 
+- [ ] Function call with kwargs
+  - `NEWOBJ_EX` only support type object (it calls `__new__`)
 
 ## FAQ
 
