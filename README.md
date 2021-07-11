@@ -67,3 +67,30 @@ No, not at all, it's definitely useless.
 
 Yep, a cool garbage.
 
+### Would you support syntaxes like `if` / `while` / `for` ?
+
+No.
+Because all pickle can do is just simply define a variable or call a function, so this kind of syntax wouldn't exist.
+
+But if you want to do things like:
+```python
+ans = input("Yes/No: ")
+if ans == 'Yes':
+  print("Great!")
+elif ans == 'No:
+  exit()
+```
+It's still achievable! You can rewrite your code to this:
+
+```python
+from functools import partial
+condition = {'Yes': partial(print, 'Great!'), 'No': exit}
+ans = input("Yes/No: ")
+condition.get(ans, repr)()
+```
+ta-da!
+
+For the loop syntax, you can try to use `map` / `reduce` ... .
+
+And yes, you are right, it's functional programming time!
+
