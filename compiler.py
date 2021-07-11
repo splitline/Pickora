@@ -29,7 +29,10 @@ class Compiler:
         if self.memo_manager.contains((modname, name)):
             self.fetch_memo((modname, name))
         else:
-            self.bytecode += f'c{modname}\n{name}\n'.encode()
+            # self.bytecode += f'c{modname}\n{name}\n'.encode()
+            self.traverse(ast.Constant(value=modname))
+            self.traverse(ast.Constant(value=name))
+            self.bytecode += pickle.STACK_GLOBAL
 
             # cache imported function / class to memo
             # if it is only used once, these bytecode will be removed by `pickletools.optimize` later
