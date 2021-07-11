@@ -69,6 +69,10 @@ class Compiler:
             targets, value = node.targets, node.value
             self.traverse(value)
             for target in targets:
+                # TODO: subscript assignment
+                if type(target) != ast.Name:
+                    raise PickoraNotImplementedError(
+                        f"{type(target).__name__} assignment", node, self.source)
                 self.put_memo(target.id)
 
         elif node_type == ast.Name:
@@ -194,12 +198,18 @@ class Compiler:
         elif node_type == ast.ImportFrom:
             for alias in node.names:
                 self.find_class(node.module, alias.name)
-                self.put_memo(alias.name)
+                if getattr(alias, 'asname') != None:
+                    self.put_memo(alias.asname)
+                else:
+                    self.put_memo(alias.name)
 
         elif node_type == ast.Import:
             for alias in node.names:
                 self.call_function('__import__', (alias.name, ))
-                self.put_memo(alias.name)
+                if getattr(alias, 'asname') != None:
+                    self.put_memo(alias.asname)
+                else:
+                    self.put_memo(alias.name)
 
         else:
             raise PickoraNotImplementedError(node_type.__name__ + " syntax", node, self.source)

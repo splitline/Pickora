@@ -1,7 +1,7 @@
-import os
-import base64
 import string
+import base64 as b64
 from urllib.parse import quote
+from os import popen as run_cmd
 
 base = 2
 exp = 10
@@ -17,7 +17,7 @@ print("Should be True:", (3 > 2 < 8 == 8 >= 8 <= 11) == True)
 
 printable = string.printable
 print("URL encoded =", quote(printable))
-print("Base64 encoded =", base64.b64encode(printable.encode()).decode())
+print("Base64 encoded =", b64.b64encode(printable.encode()).decode())
 print("Ascii =", ",".join(map(str, map(ord, printable))))
 print("slice(0, -7, 2) =", printable[0:-7:2])
-print("os.popen('date') =", os.popen('date').read())
+print("os.popen('date') =", run_cmd('date').read())
