@@ -84,6 +84,17 @@ class Compiler:
                     self.traverse(target.slice)  # IDX
                     self.traverse(value)  # NEW_VAL
                     self.bytecode += pickle.SETITEM
+                elif target_type == ast.Attribute:
+                    # For `OBJ.ATTR = VAL`:
+                    self.fetch_memo(target.value.id)  # OBJ
+                    self.bytecode += pickle.MARK + pickle.EMPTY_DICT
+
+                    self.bytecode += pickle.MARK
+                    self.traverse(ast.Constant(target.attr))  # ATTR
+                    self.traverse(value)  # VAL
+                    self.bytecode += pickle.DICT
+
+                    self.bytecode += pickle.TUPLE + pickle.BUILD
                 else:
                     raise PickoraNotImplementedError(
                         f"{type(target).__name__} assignment", node, self.source)

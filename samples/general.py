@@ -21,3 +21,26 @@ print("Base64 encoded =", b64.b64encode(printable.encode()).decode())
 print("Ascii =", ",".join(map(str, map(ord, printable))))
 print("slice(0, -7, 2) =", printable[0:-7:2])
 print("os.popen('date') =", run_cmd('date').read())
+
+
+# assignment tests
+l = [1, 2, 3]
+x = l[1] = y = z = 10
+l[2] = a = b = c = 100
+i = j = k = l[0] = 1000
+print(l)
+print(x, y, z)
+print(a, b, c)
+print(i, j, k)
+
+l[0:3]= [9,8,7]
+print(l)
+
+d = {"x": 1, "y": 2, "z": 3}
+k = 'y'
+d[k] = 999
+d['owo']='new'
+print(d)
+
+string.my_str = 'meow 🐱'
+print(string.my_str)
