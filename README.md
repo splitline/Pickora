@@ -46,7 +46,9 @@ python3 -m pickle output.pkl
 - [ ] Unpacking assignment
 - [ ] Augmented assignment
 - [ ] Macros (directly using GLOBAL, OBJECT bytecodes)
-- [ ] lambda / function (optional)
+- [x] Lambda
+  - [x] Python bytecode mode
+  - [ ] Pickle bytecode mode
 
 ### Impracticable 
 - [ ] Function call with kwargs
@@ -72,8 +74,7 @@ Yep, a cool garbage.
 
 ### Would you support syntaxes like `if` / `while` / `for` ?
 
-No.
-Because all pickle can do is just simply define a variable or call a function, so this kind of syntax wouldn't exist.
+No. All pickle can do is just simply define a variable or call a function, so this kind of syntax wouldn't exist.
 
 But if you want to do things like:
 ```python

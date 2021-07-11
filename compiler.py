@@ -2,8 +2,8 @@ import ast
 import sys
 import pickle
 import pickletools
+import types
 from helper import *
-from tokenize import generate_tokens
 
 
 class Compiler:
@@ -50,10 +50,13 @@ class Compiler:
 
     def put_memo(self, name):
         index = self.memo_manager.get_memo(name).index
-        if index <= 0xff:
-            self.bytecode += pickle.BINPUT + index.to_bytes(1, 'little')
+        if self.memo_manager.contains(name):
+            if index <= 0xff:
+                self.bytecode += pickle.BINPUT + index.to_bytes(1, 'little')
+            else:
+                self.bytecode += pickle.LONG_BINPUT + index.to_bytes(4, 'little')
         else:
-            self.bytecode += pickle.LONG_BINPUT + index.to_bytes(4, 'little')
+            self.bytecode += pickle.MEMOIZE
         # self.bytecode += pickle.PUT + str(index).encode() + b'\n'
 
     def get_tuple_code(self, size):
@@ -230,6 +233,9 @@ class Compiler:
 
         elif node_type == ast.ImportFrom:
             for alias in node.names:
+                if alias.name == '*':
+                    raise PickoraNotImplementedError(
+                        "doesn't support import * syntax", node, self.source)
                 self.find_class(node.module, alias.name)
                 if getattr(alias, 'asname') != None:
                     self.put_memo(alias.asname)
@@ -244,5 +250,27 @@ class Compiler:
                 else:
                     self.put_memo(alias.name)
 
+        elif node_type == ast.Lambda:
+            # Python bytecode mode:
+            # convert lambda function to FunctionType(CodeType(...),...)
+
+            code = compile(ast.Expression(body=node), '<pickora.lambda>', 'eval')
+            lambda_code = next(c for c in code.co_consts if type(c) == types.CodeType)
+
+            code_attrs = ('argcount', 'posonlyargcount', 'kwonlyargcount', 'nlocals', 'stacksize', 'flags',
+                          'code', 'consts', 'names', 'varnames', 'filename', 'name', 'firstlineno', 'lnotab')
+            code_args = [getattr(lambda_code, f'co_{attr}') for attr in code_attrs]
+            call_CodeType = ast.parse(f'CodeType{tuple(code_args)}', mode='eval').body
+            call_CodeType.func = ('types', 'CodeType')
+
+            self.call_function(('types', 'FunctionType'), (
+                call_CodeType,
+                # if co_names not empty: it might need globals
+                # although the globals is not the real globals for the source code
+                ast.Call(func=('__builtin__', 'globals'), args=[]) if code_args[8] != ()
+                else ast.Dict(keys=[], values=[]),
+                None,
+                ast.Tuple(elts=node.args.defaults)
+            ))
         else:
             raise PickoraNotImplementedError(node_type.__name__ + " syntax", node, self.source)
