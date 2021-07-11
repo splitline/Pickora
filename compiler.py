@@ -5,6 +5,8 @@ import pickletools
 import types
 from helper import *
 
+PICKLE_RETURN_KEY = '_PKL_RETURN'
+
 
 class Compiler:
     def __init__(self, source):
@@ -17,8 +19,9 @@ class Compiler:
         if __import__('os').getenv("DEBUG"):
             kwargs = {'indent': 4} if sys.version_info >= (3, 9) else {}
             print(ast.dump(tree, **kwargs))
-        for node in tree.body:
+        for node in tree.body[:-1]:
             self.traverse(node)
+        self.traverse(tree.body[-1], last=True)
 
         if self.bytecode == b'':
             self.bytecode += pickle.NONE
@@ -78,17 +81,27 @@ class Compiler:
         self.bytecode += self.get_tuple_code(len(args))
         self.bytecode += pickle.REDUCE
 
-    def traverse(self, node):
+    def check_name(self, name, node):
+        if name == PICKLE_RETURN_KEY:
+            raise PickoraNameError(
+                f"Name '{PICKLE_RETURN_KEY}' is reserved for specifying pickle.loads result. "
+                "It should be put in the last statement alone.", node, self.source)
+
+    def traverse(self, node, last=False):
         node_type = type(node)
         if node_type == ast.Assign:
             targets, value = node.targets, node.value
+            if last and len(targets) == 1 and isinstance(targets[0], ast.Name) and targets[0].id == PICKLE_RETURN_KEY:
+                self.traverse(value)
+                return
             for target in targets:
                 # TODO: unpacking assignment
                 target_type = type(target)
                 if target_type == ast.Name:
+                    self.check_name(target.id, target)
                     self.traverse(value)
                     self.put_memo(target.id)
-                    self.bytecode += pickle.POP
+                    # self.bytecode += pickle.POP
                 elif target_type == ast.Subscript:
                     # For `ITER[IDX] = NEW_VAL`:
                     self.traverse(target.value)  # get ITER
@@ -113,7 +126,10 @@ class Compiler:
                     raise PickoraNotImplementedError(
                         f"{type(target).__name__} assignment", node, self.source)
 
+            if last:
+                self.bytecode += pickle.NONE
         elif node_type == ast.Name:
+            self.check_name(node.id, node)
             if self.memo_manager.contains(node.id):
                 self.fetch_memo(node.id)
             elif is_builtins(node.id):
@@ -238,6 +254,7 @@ class Compiler:
                         "doesn't support import * syntax", node, self.source)
                 self.find_class(node.module, alias.name)
                 if getattr(alias, 'asname') != None:
+                    self.check_name(alias.asname, node)
                     self.put_memo(alias.asname)
                 else:
                     self.put_memo(alias.name)
@@ -246,6 +263,7 @@ class Compiler:
             for alias in node.names:
                 self.call_function(('__builtin__', '__import__'), (alias.name, ))
                 if getattr(alias, 'asname') != None:
+                    self.check_name(alias.asname, node)
                     self.put_memo(alias.asname)
                 else:
                     self.put_memo(alias.name)

@@ -40,6 +40,23 @@ But this won't run the pickle for you. If you want you should add `-r` option, o
 python3 -m pickle output.pkl
 ```
 
+## Special Syntax
+
+### `_PKL_RETURN`
+
+`_PKL_RETURN` is a keyword reserved for specifying `pickle.load(s)` result. This keyword should only be put in the last statement alone, and you can assign any value / expression to it. 
+
+For example, after you compile the following code and use `pickle.loads` to load the compiled pickle, it will return a string `'INT_MAX=2147483647'`.
+```python
+ret = pow(2, 31) - 1
+_PKL_RETURN = "INT_MAX=%d" % ret
+```
+It should look like this:
+```shell
+$ python3 -m pickle output.pkl
+'INT_MAX=2147483647'
+```
+
 ## Todos
 
 - [x] Operators (<s>compare</s>, <s>unary</s>, <s>binary</s>, <s>subscript</s>)
