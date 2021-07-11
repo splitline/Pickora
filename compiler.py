@@ -53,6 +53,9 @@ class Compiler:
             self.bytecode += pickle.LONG_BINPUT + index.to_bytes(4, 'little')
         # self.bytecode += pickle.PUT + str(index).encode() + b'\n'
 
+    def get_tuple_code(self, size):
+        return pickle._tuplesize2code[size] if size <= 3 else pickle.TUPLE
+
     def call_function(self, func, args):
         if type(func) == tuple:
             self.find_class(*func)
@@ -60,12 +63,14 @@ class Compiler:
             if type(func) == str:
                 func = ast.Name(id=func, ctx=ast.Load())
             self.traverse(func)
-        self.bytecode += pickle.MARK
+        if len(args) > 3:
+            self.bytecode += pickle.MARK
         for arg in args:
             if not isinstance(arg, ast.AST):
                 arg = ast.Constant(value=arg)
             self.traverse(arg)
-        self.bytecode += pickle.TUPLE + pickle.REDUCE
+        self.bytecode += self.get_tuple_code(len(args))
+        self.bytecode += pickle.REDUCE
 
     def traverse(self, node):
         node_type = type(node)
@@ -87,7 +92,6 @@ class Compiler:
                 elif target_type == ast.Attribute:
                     # For `OBJ.ATTR = VAL`:
                     self.traverse(target.value)  # get OBJ
-                    self.bytecode += pickle.MARK
 
                     # BUILD arg 1: {}
                     self.bytecode += pickle.EMPTY_DICT
@@ -98,7 +102,7 @@ class Compiler:
                     self.traverse(value)  # VAL
                     self.bytecode += pickle.DICT
 
-                    self.bytecode += pickle.TUPLE + pickle.BUILD
+                    self.bytecode += pickle.TUPLE2 + pickle.BUILD
                 else:
                     raise PickoraNotImplementedError(
                         f"{type(target).__name__} assignment", node, self.source)
@@ -152,10 +156,12 @@ class Compiler:
                 raise PickoraNotImplementedError("Type:", type(node.value))
 
         elif node_type == ast.Tuple:
-            self.bytecode += pickle.MARK
+            tuple_size = len(node.elts)
+            if tuple_size > 3:
+                self.bytecode += pickle.MARK
             for element in node.elts:
                 self.traverse(element)
-            self.bytecode += pickle.TUPLE
+            self.bytecode += self.get_tuple_code(tuple_size)
 
         elif node_type == ast.List:
             self.bytecode += pickle.MARK
@@ -176,9 +182,9 @@ class Compiler:
         elif node_type == ast.Compare:
             # a>b>c -> all((a>b, b>c))
             self.find_class("__builtin__", 'all')
-            self.bytecode += pickle.MARK
-
-            self.bytecode += pickle.MARK  # TUPLE mark
+            tuple_size = len(node.ops)
+            if tuple_size > 3:
+                self.bytecode += pickle.MARK  # TUPLE mark
             left = node.left
             for _op, right in zip(node.ops, node.comparators):
                 op = type(_op)
@@ -188,9 +194,10 @@ class Compiler:
                     (left, right)
                 )
                 left = right
-            self.bytecode += pickle.TUPLE  # /TUPLE
+            self.bytecode += self.get_tuple_code(tuple_size)
+            # /TUPLE
 
-            self.bytecode += pickle.TUPLE + pickle.REDUCE
+            self.bytecode += pickle.TUPLE1 + pickle.REDUCE
 
         # TODO: BoolOp
         elif node_type in [ast.BinOp, ast.UnaryOp]:
