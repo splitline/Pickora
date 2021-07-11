@@ -42,14 +42,14 @@ python3 -m pickle output.pkl
 
 ## Special Syntax
 
-### `_PKL_RETURN`
+### `RETURN`
 
-`_PKL_RETURN` is a keyword reserved for specifying `pickle.load(s)` result. This keyword should only be put in the last statement alone, and you can assign any value / expression to it. 
+`RETURN` is a keyword reserved for specifying `pickle.load(s)` result. This keyword should only be put in the last statement alone, and you can assign any value / expression to it. 
 
 For example, after you compile the following code and use `pickle.loads` to load the compiled pickle, it will return a string `'INT_MAX=2147483647'`.
 ```python
 ret = pow(2, 31) - 1
-_PKL_RETURN = "INT_MAX=%d" % ret
+RETURN = "INT_MAX=%d" % ret
 ```
 It should look like this:
 ```shell

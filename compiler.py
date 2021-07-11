@@ -5,7 +5,7 @@ import pickletools
 import types
 from helper import *
 
-PICKLE_RETURN_KEY = '_PKL_RETURN'
+PICKLE_RETURN_KEY = 'RETURN'
 
 
 class Compiler:
