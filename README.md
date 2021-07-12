@@ -93,9 +93,9 @@ It's cool.
 
 No, not at all, it's definitely useless.
 
-### So, is this a garbage?
+### So, is this garbage?
 
-Yep, a cool garbage.
+Yep, it's cool garbage.
 
 ### Would it support syntaxes like `if` / `while` / `for` ?
 
