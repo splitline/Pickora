@@ -11,7 +11,7 @@ No third-party modules are required.
 ## Usage
 
 ```
-usage: pickora.py [-h] [-d] [-r] [-o OUTPUT] file
+usage: pickora.py [-h] [-d] [-r] [-l {none,python,pickle}] [-o OUTPUT] file
 
 A toy compiler that can convert Python scripts to pickle bytecode.
 
@@ -22,9 +22,13 @@ optional arguments:
   -h, --help            show this help message and exit
   -d, --dis             disassamble compiled pickle bytecode
   -r, --eval, --run     run the pickle bytecode
+  -l {none,python,pickle}, --lambda {none,python,pickle}
+                        choose lambda compiling mode
   -o OUTPUT, --output OUTPUT
-                        Write compiled pickle to file
+                        write compiled pickle to file
 ```
+
+> Lambda syntax is disabled (`--lambda=none`) by default.
 
 For exmple, you can run:
 
@@ -54,7 +58,7 @@ RETURN = "INT_MAX=%d" % n
 ```
 It might look like this:
 ```shell
-$ python3 pickora.py -d source.py -o output.pkl
+$ python3 pickora.py source.py -o output.pkl
 Saving pickle to output.pkl
 
 $ python3 -m pickle output.pkl

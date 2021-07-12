@@ -30,11 +30,13 @@ if __name__ == "__main__":
     parser.add_argument("file", help="the Python script to compile")
     parser.add_argument("-d", "--dis", help="disassamble compiled pickle bytecode", action="store_true")
     parser.add_argument("-r", "--eval", "--run", help="run the pickle bytecode", action="store_true")
-    parser.add_argument("-o", "--output", type=str, help="Write compiled pickle to file")
+    parser.add_argument("-l", "--lambda", dest='compile_lambda', help="choose lambda compiling mode",
+                        choices=['none', 'python', 'pickle'], default='none')
+    parser.add_argument("-o", "--output", type=str, help="write compiled pickle to file")
     args = parser.parse_args()
 
     source = open(args.file, 'r').read()
-    compiler = Compiler(source)
+    compiler = Compiler(source, compile_lambda=args.compile_lambda)
     bytecode = compiler.compile()
 
     if args.dis:
@@ -45,7 +47,6 @@ if __name__ == "__main__":
             pass
 
     if args.output:
-        print("Saving pickle to", args.output)
         with open(args.output, 'wb') as out:
             out.write(bytecode)
     else:

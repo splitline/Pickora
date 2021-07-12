@@ -9,8 +9,9 @@ PICKLE_RETURN_KEY = 'RETURN'
 
 
 class Compiler:
-    def __init__(self, source):
+    def __init__(self, source, compile_lambda='none'):
         self.source = source
+        self.compile_lambda = compile_lambda
         self.bytecode = bytes()
         self.memo_manager = MemoManager()
 
@@ -270,26 +271,31 @@ class Compiler:
                     self.put_memo(alias.name)
 
         elif node_type == ast.Lambda:
-            # Python bytecode mode:
-            # convert lambda function to FunctionType(CodeType(...),...)
+            if self.compile_lambda == 'none':
+                raise PickoraError(
+                    'lambda compiling is disabled by default, add `--lambda` option to enable it.', node, self.source)
+            elif self.compile_lambda == 'python':
+                # Python bytecode mode:
+                # convert lambda function to FunctionType(CodeType(...),...)
+                code = compile(ast.Expression(body=node), '<pickora.lambda>', 'eval')
+                lambda_code = next(c for c in code.co_consts if type(c) == types.CodeType)
 
-            code = compile(ast.Expression(body=node), '<pickora.lambda>', 'eval')
-            lambda_code = next(c for c in code.co_consts if type(c) == types.CodeType)
+                code_attrs = ('argcount', 'posonlyargcount', 'kwonlyargcount', 'nlocals', 'stacksize', 'flags',
+                              'code', 'consts', 'names', 'varnames', 'filename', 'name', 'firstlineno', 'lnotab')
+                code_args = [getattr(lambda_code, f'co_{attr}') for attr in code_attrs]
+                call_CodeType = ast.parse(f'CodeType{tuple(code_args)}', mode='eval').body
+                call_CodeType.func = ('types', 'CodeType')
 
-            code_attrs = ('argcount', 'posonlyargcount', 'kwonlyargcount', 'nlocals', 'stacksize', 'flags',
-                          'code', 'consts', 'names', 'varnames', 'filename', 'name', 'firstlineno', 'lnotab')
-            code_args = [getattr(lambda_code, f'co_{attr}') for attr in code_attrs]
-            call_CodeType = ast.parse(f'CodeType{tuple(code_args)}', mode='eval').body
-            call_CodeType.func = ('types', 'CodeType')
-
-            self.call_function(('types', 'FunctionType'), (
-                call_CodeType,
-                # if co_names not empty: it might need globals
-                # although the globals is not the real globals for the source code
-                ast.Call(func=('__builtin__', 'globals'), args=[]) if code_args[8] != ()
-                else ast.Dict(keys=[], values=[]),
-                None,
-                ast.Tuple(elts=node.args.defaults)
-            ))
+                self.call_function(('types', 'FunctionType'), (
+                    call_CodeType,
+                    # if co_names not empty: it might need globals
+                    # although the globals is not the real globals for the source code
+                    ast.Call(func=('__builtin__', 'globals'), args=[]) if code_args[8] != ()
+                    else ast.Dict(keys=[], values=[]),
+                    None,
+                    ast.Tuple(elts=node.args.defaults)
+                ))
+            else:
+                raise PickoraNotImplementedError(f"Not implemented mode '{self.compile_lambda}' for compiling lambda.", node, self.source)
         else:
             raise PickoraNotImplementedError(node_type.__name__ + " syntax", node, self.source)
