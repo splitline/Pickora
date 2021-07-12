@@ -142,6 +142,10 @@ class Compiler:
         elif node_type == ast.Expr:
             self.traverse(node.value)
 
+        elif node_type == ast.NamedExpr:
+            self.traverse(node.value)
+            self.put_memo(node.target.id)
+
         elif node_type == ast.Call:
             self.call_function(node.func, node.args)
 
@@ -296,6 +300,7 @@ class Compiler:
                     ast.Tuple(elts=node.args.defaults)
                 ))
             else:
-                raise PickoraNotImplementedError(f"Not implemented mode '{self.compile_lambda}' for compiling lambda.", node, self.source)
+                raise PickoraNotImplementedError(
+                    f"Not implemented mode '{self.compile_lambda}' for compiling lambda.", node, self.source)
         else:
             raise PickoraNotImplementedError(node_type.__name__ + " syntax", node, self.source)

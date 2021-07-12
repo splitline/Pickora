@@ -38,3 +38,5 @@ listitem_render = partial(str.format,
                           "-" * 32 + "\n")
 
 tuple(map(print, starmap(listitem_render, detailed_articles)))
+
+RETURN = "Subreddit browser demo :D"
