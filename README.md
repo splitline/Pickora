@@ -46,13 +46,17 @@ python3 -m pickle output.pkl
 
 `RETURN` is a keyword reserved for specifying `pickle.load(s)` result. This keyword should only be put in the last statement alone, and you can assign any value / expression to it. 
 
-For example, after you compile the following code and use `pickle.loads` to load the compiled pickle, it will return a string `'INT_MAX=2147483647'`.
+For example, after you compile the following code and use `pickle.loads` to load the compiled pickle, it returns a string `'INT_MAX=2147483647'`.
 ```python
-ret = pow(2, 31) - 1
-RETURN = "INT_MAX=%d" % ret
+# source.py
+n = pow(2, 31) - 1
+RETURN = "INT_MAX=%d" % n
 ```
-It should look like this:
+It might look like this:
 ```shell
+$ python3 pickora.py -d source.py -o output.pkl
+Saving pickle to output.pkl
+
 $ python3 -m pickle output.pkl
 'INT_MAX=2147483647'
 ```
@@ -63,7 +67,7 @@ $ python3 -m pickle output.pkl
 - [ ] Unpacking assignment
 - [ ] Augmented assignment
 - [ ] Macros (directly using GLOBAL, OBJECT bytecodes)
-- [x] Lambda
+- [x] Lambda (I don't want to support normal function, because it seems not "picklic" for me)
   - [x] Python bytecode mode
   - [ ] Pickle bytecode mode
 
@@ -89,7 +93,7 @@ No, not at all, it's definitely useless.
 
 Yep, a cool garbage.
 
-### Would you support syntaxes like `if` / `while` / `for` ?
+### Would it support syntaxes like `if` / `while` / `for` ?
 
 No. All pickle can do is just simply define a variable or call a function, so this kind of syntax wouldn't exist.
 
