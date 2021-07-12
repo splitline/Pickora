@@ -35,9 +35,7 @@ if __name__ == "__main__":
 
     source = open(args.file, 'r').read()
     compiler = Compiler(source)
-
-    compiler.compile()
-    bytecode = compiler.bytecode
+    bytecode = compiler.compile()
 
     if args.dis:
         import pickletools
@@ -54,4 +52,5 @@ if __name__ == "__main__":
         print("pickle_bytecode =", bytecode)
 
     if args.eval:
-        pickle.loads(bytecode)
+        ret = pickle.loads(bytecode)
+        print("[+] pickle.loads returns:", repr(ret))

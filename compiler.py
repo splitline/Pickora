@@ -19,14 +19,17 @@ class Compiler:
         if __import__('os').getenv("DEBUG"):
             kwargs = {'indent': 4} if sys.version_info >= (3, 9) else {}
             print(ast.dump(tree, **kwargs))
+        if len(tree.body) == 0:
+            self.bytecode = pickle.NONE + pickle.STOP
+            return self.bytecode
+
         for node in tree.body[:-1]:
             self.traverse(node)
         self.traverse(tree.body[-1], last=True)
 
-        if self.bytecode == b'':
-            self.bytecode += pickle.NONE
         self.bytecode += pickle.STOP
         self.bytecode = pickletools.optimize(self.bytecode)
+        return self.bytecode
 
     def find_class(self, modname, name):
         if self.memo_manager.contains((modname, name)):
@@ -126,8 +129,6 @@ class Compiler:
                     raise PickoraNotImplementedError(
                         f"{type(target).__name__} assignment", node, self.source)
 
-            if last:
-                self.bytecode += pickle.NONE
         elif node_type == ast.Name:
             self.check_name(node.id, node)
             if self.memo_manager.contains(node.id):
