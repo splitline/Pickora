@@ -9,7 +9,8 @@ exp = 10
 print("pow(%d, %d) = %d" % (base, exp, pow(base, exp)))
 
 mixed_dict = {"int": 1337, "float": 3.14, "str": "Meow 🐈",
-              "bytes": b'\x01\x02qwq\xff', "list": [1, 2, 3, [4, 5, 6]]}
+              "bytes": b'\x01\x02qwq\xff', "list": [1, 2, 3, [4, 5, 6]],
+              "set": {'s', 1, 2, 3, 3, 3, (1+2)}}
 
 print(mixed_dict)
 print(mixed_dict['list'])

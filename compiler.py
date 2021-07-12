@@ -20,6 +20,9 @@ class Compiler:
         if __import__('os').getenv("DEBUG"):
             kwargs = {'indent': 4} if sys.version_info >= (3, 9) else {}
             print(ast.dump(tree, **kwargs))
+
+        self.bytecode += pickle.PROTO + b"\x04" # protocol 4
+
         if len(tree.body) == 0:
             self.bytecode = pickle.NONE + pickle.STOP
             return self.bytecode
@@ -43,7 +46,7 @@ class Compiler:
 
             # cache imported function / class to memo
             # if it is only used once, these bytecode will be removed by `pickletools.optimize` later
-            if modname == '__builtin__':
+            if modname == 'builtins':
                 self.put_memo(name)
             else:
                 self.put_memo((modname, name))
@@ -135,7 +138,7 @@ class Compiler:
             if self.memo_manager.contains(node.id):
                 self.fetch_memo(node.id)
             elif is_builtins(node.id):
-                self.find_class('__builtin__', node.id)
+                self.find_class('builtins', node.id)
             else:
                 raise PickoraNameError(f"name '{node.id}' is not defined.", node, self.source)
 
@@ -205,9 +208,16 @@ class Compiler:
                 self.traverse(val)
             self.bytecode += pickle.DICT
 
+        elif node_type == ast.Set:
+            self.bytecode += pickle.EMPTY_SET
+            self.bytecode += pickle.MARK
+            for element in node.elts:
+                self.traverse(element)
+            self.bytecode += pickle.ADDITEMS
+
         elif node_type == ast.Compare:
             # a>b>c -> all((a>b, b>c))
-            self.find_class("__builtin__", 'all')
+            self.find_class("builtins", 'all')
             tuple_size = len(node.ops)
             if tuple_size > 3:
                 self.bytecode += pickle.MARK  # TUPLE mark
@@ -248,10 +258,10 @@ class Compiler:
             self.traverse(node.value)
 
         elif node_type == ast.Slice:
-            self.call_function(('__builtin__', 'slice'), (node.lower, node.upper, node.step))
+            self.call_function(('builtins', 'slice'), (node.lower, node.upper, node.step))
 
         elif node_type == ast.Attribute:
-            self.call_function(('__builtin__', 'getattr'), (node.value, node.attr))
+            self.call_function(('builtins', 'getattr'), (node.value, node.attr))
 
         elif node_type == ast.ImportFrom:
             for alias in node.names:
@@ -267,7 +277,7 @@ class Compiler:
 
         elif node_type == ast.Import:
             for alias in node.names:
-                self.call_function(('__builtin__', '__import__'), (alias.name, ))
+                self.call_function(('builtins', '__import__'), (alias.name, ))
                 if getattr(alias, 'asname') != None:
                     self.check_name(alias.asname, node)
                     self.put_memo(alias.asname)
@@ -294,7 +304,7 @@ class Compiler:
                     call_CodeType,
                     # if co_names not empty: it might need globals
                     # although the globals is not the real globals for the source code
-                    ast.Call(func=('__builtin__', 'globals'), args=[]) if code_args[8] != ()
+                    ast.Call(func=('builtins', 'globals'), args=[]) if code_args[8] != ()
                     else ast.Dict(keys=[], values=[]),
                     None,
                     ast.Tuple(elts=node.args.defaults)

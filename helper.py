@@ -12,7 +12,7 @@ class PickoraNotImplementedError(PickoraError):
         super().__init__(*args, **kwargs)
 
 class Memo():
-    def __init__(self, index, is_module=False):
+    def __init__(self, index):
         self.index = index
 
 
@@ -24,11 +24,11 @@ class MemoManager:
     def contains(self, name) -> bool:
         return name in self.name_to_memo
 
-    def get_memo(self, name, is_module=False) -> Memo:
+    def get_memo(self, name) -> Memo:
         if name in self.name_to_memo:
             return self.name_to_memo[name]
 
-        self.name_to_memo[name] = Memo(self.current_index, is_module)
+        self.name_to_memo[name] = Memo(self.current_index)
         self.current_index += 1
         return self.name_to_memo[name]
 
