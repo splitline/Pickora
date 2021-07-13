@@ -256,9 +256,10 @@ class Compiler:
             self.bytecode += pickle.ADDITEMS
 
         def parse_Compare():
-            # a>b>c -> all((a>b, b>c))
-            self.find_class("builtins", 'all')
+            # a > b > c -> all((a > b, b > c))
             tuple_size = len(node.ops)
+            if tuple_size > 1:
+                self.find_class("builtins", 'all')
             if tuple_size > 3:
                 self.bytecode += pickle.MARK  # TUPLE mark
             left = node.left
@@ -270,10 +271,10 @@ class Compiler:
                     (left, right)
                 )
                 left = right
-            self.bytecode += self.get_tuple_code(tuple_size)
             # /TUPLE
-
-            self.bytecode += pickle.TUPLE1 + pickle.REDUCE
+            if tuple_size > 1:
+                self.bytecode += self.get_tuple_code(tuple_size)
+                self.bytecode += pickle.TUPLE1 + pickle.REDUCE
 
         # TODO: BoolOp
         # elif node_type in [ast.BinOp, ast.UnaryOp]:
