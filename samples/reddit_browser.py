@@ -20,7 +20,7 @@ tuple(map(print, starmap(
     partial(str.format, "{}:  {}" ),
     options.items())))
 choice = input("[+] Choose a subreddit: ")
-subreddit = options.get(choice, "/r/Python")
+subreddit = options.get(int(choice), "/r/Python")
 
 print("Loading...")
 

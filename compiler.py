@@ -21,7 +21,7 @@ class Compiler:
             kwargs = {'indent': 4} if sys.version_info >= (3, 9) else {}
             print(ast.dump(tree, **kwargs))
 
-        self.bytecode += pickle.PROTO + b"\x04" # protocol 4
+        self.bytecode += pickle.PROTO + b"\x04"  # protocol 4
 
         if len(tree.body) == 0:
             self.bytecode = pickle.NONE + pickle.STOP
@@ -131,8 +131,7 @@ class Compiler:
                 "It should be put in the last statement alone.", node, self.source)
 
     def traverse(self, node, last=False):
-        node_type = type(node)
-        if node_type == ast.Assign:
+        def parse_Assign():
             targets, value = node.targets, node.value
             if last and len(targets) == 1 and isinstance(targets[0], ast.Name) and targets[0].id == PICKLE_RETURN_KEY:
                 self.traverse(value)
@@ -169,7 +168,7 @@ class Compiler:
                     raise PickoraNotImplementedError(
                         f"{type(target).__name__} assignment", node, self.source)
 
-        elif node_type == ast.Name:
+        def parse_Name():
             self.check_name(node.id, node)
             if self.memo_manager.contains(node.id):
                 self.fetch_memo(node.id)
@@ -178,17 +177,17 @@ class Compiler:
             else:
                 raise PickoraNameError(f"name '{node.id}' is not defined.", node, self.source)
 
-        elif node_type == ast.Expr:
+        def parse_Expr():
             self.traverse(node.value)
 
-        elif node_type == ast.NamedExpr:
+        def parse_NamedExpr():
             self.traverse(node.value)
             self.put_memo(node.target.id)
 
-        elif node_type == ast.Call:
+        def parse_Call():
             self.call_function(node.func, node.args)
 
-        elif node_type == ast.Constant:
+        def parse_Constant():
             val = node.value
             const_type = type(val)
 
@@ -218,11 +217,13 @@ class Compiler:
                                   else pickle.BINBYTES + n.to_bytes(4, 'little')) + node.value
             elif val == None:
                 self.bytecode += pickle.NONE
+            elif val == Ellipsis:
+                self.find_class('builtins', 'Ellipsis')
             else:
                 # I am not sure if there are types I didn't implement 🤔
-                raise PickoraNotImplementedError("Type:", type(node.value))
+                raise PickoraNotImplementedError("Type: " + repr(const_type), node, self.source)
 
-        elif node_type == ast.Tuple:
+        def parse_Tuple():
             tuple_size = len(node.elts)
             if tuple_size > 3:
                 self.bytecode += pickle.MARK
@@ -230,13 +231,13 @@ class Compiler:
                 self.traverse(element)
             self.bytecode += self.get_tuple_code(tuple_size)
 
-        elif node_type == ast.List:
+        def parse_List():
             self.bytecode += pickle.MARK
             for element in node.elts:
                 self.traverse(element)
             self.bytecode += pickle.LIST
 
-        elif node_type == ast.Dict:
+        def parse_Dict():
             self.bytecode += pickle.MARK
             assert(len(node.keys) == len(node.values))
             for key, val in zip(node.keys, node.values):
@@ -244,14 +245,14 @@ class Compiler:
                 self.traverse(val)
             self.bytecode += pickle.DICT
 
-        elif node_type == ast.Set:
+        def parse_Set():
             self.bytecode += pickle.EMPTY_SET
             self.bytecode += pickle.MARK
             for element in node.elts:
                 self.traverse(element)
             self.bytecode += pickle.ADDITEMS
 
-        elif node_type == ast.Compare:
+        def parse_Compare():
             # a>b>c -> all((a>b, b>c))
             self.find_class("builtins", 'all')
             tuple_size = len(node.ops)
@@ -272,34 +273,35 @@ class Compiler:
             self.bytecode += pickle.TUPLE1 + pickle.REDUCE
 
         # TODO: BoolOp
-        elif node_type in [ast.BinOp, ast.UnaryOp]:
+        # elif node_type in [ast.BinOp, ast.UnaryOp]:
+        def _parse_Op():
             op = type(node.op)
             assert(op in op_to_method)
 
             # # magic methods are really magic, I don't understand it well :(
             # self.getattr(node.left, '__'+op_to_method.get(op)+'__')
             args = tuple()
-            if node_type == ast.BinOp:
+            if type(node) == ast.BinOp:
                 args = (node.left, node.right)
-            elif node_type == ast.UnaryOp:
+            elif type(node) == ast.UnaryOp:
                 args = (node.operand,)
 
             self.call_function(("operator", op_to_method.get(op)), args)
 
-        elif node_type == ast.Subscript:
+        def parse_Subscript():
             self.call_function(('operator', "getitem"), (node.value, node.slice))
 
         # compatible with Python 3.8
-        elif node_type == ast.Index:
+        def parse_Index():
             self.traverse(node.value)
 
-        elif node_type == ast.Slice:
+        def parse_Slice():
             self.call_function(('builtins', 'slice'), (node.lower, node.upper, node.step))
 
-        elif node_type == ast.Attribute:
+        def parse_Attribute():
             self.call_function(('builtins', 'getattr'), (node.value, node.attr))
 
-        elif node_type == ast.ImportFrom:
+        def parse_ImportFrom():
             for alias in node.names:
                 if alias.name == '*':
                     raise PickoraNotImplementedError(
@@ -311,7 +313,7 @@ class Compiler:
                 else:
                     self.put_memo(alias.name)
 
-        elif node_type == ast.Import:
+        def parse_Import():
             for alias in node.names:
                 self.call_function(('builtins', '__import__'), (alias.name, ))
                 if getattr(alias, 'asname') != None:
@@ -320,7 +322,7 @@ class Compiler:
                 else:
                     self.put_memo(alias.name)
 
-        elif node_type == ast.Lambda:
+        def parse_Lambda():
             if self.compile_lambda == 'none':
                 raise PickoraError(
                     'lambda compiling is disabled by default, add `--lambda` option to enable it.', node, self.source)
@@ -348,5 +350,15 @@ class Compiler:
             else:
                 raise PickoraNotImplementedError(
                     f"Not implemented mode '{self.compile_lambda}' for compiling lambda.", node, self.source)
+
+        if isinstance(node, ast.AST):
+            # TODO: this is a bit hacky :/
+            local_vars = locals()
+            local_vars['parse_BinOp'] = local_vars['parse_UnaryOp'] = _parse_Op
+            parser_function = f'parse_{type(node).__name__}'
+            if local_vars.get(parser_function):
+                local_vars.get(parser_function)()
+            else:
+                raise PickoraNotImplementedError(type(node).__name__ + " syntax", node, self.source)
         else:
-            raise PickoraNotImplementedError(node_type.__name__ + " syntax", node, self.source)
+            raise PickoraNotImplementedError(type(node).__name__ + " syntax", node, self.source)

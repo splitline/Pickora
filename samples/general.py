@@ -14,7 +14,8 @@ mixed_dict = {"int": 1337, "float": 3.14, "str": "Meow 🐈",
 
 print(mixed_dict)
 print(mixed_dict['list'])
-print("Should be True:", (3 > 2 < 8 == 8 >= 8 <= 11) == True)
+print("Should be True:", (3 > (named_assign:=2) < 8 == 8 >= 8 <= 11) == True)
+print("named_assign:", named_assign)
 
 printable = string.printable
 print("URL encoded =", quote(printable))
