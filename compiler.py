@@ -27,11 +27,11 @@ class Compiler:
             self.bytecode += pickle.NONE + pickle.STOP
             return self.bytecode
 
-        self.bytecode += pickle.MARK # for POP_MARK
+        self.bytecode += pickle.MARK  # for POP_MARK
         for node in tree.body[:-1]:
             self.traverse(node)
-        self.bytecode += pickle.POP_MARK # clean up stack
-        
+        self.bytecode += pickle.POP_MARK  # clean up stack
+
         self.traverse(tree.body[-1], last=True)
 
         self.bytecode += pickle.STOP
@@ -49,10 +49,7 @@ class Compiler:
 
             # cache imported function / class to memo
             # if it is only used once, these bytecode will be removed by `pickletools.optimize` later
-            if modname == 'builtins':
-                self.put_memo(name)
-            else:
-                self.put_memo((modname, name))
+            self.put_memo((modname, name))
 
     def fetch_memo(self, key):
         index = self.memo_manager.get_memo(key).index
@@ -224,7 +221,7 @@ class Compiler:
                 self.find_class('builtins', 'Ellipsis')
             else:
                 # I am not sure if there are types I didn't implement 🤔
-                raise PickoraNotImplementedError("Type: " + repr(const_type), node, self.source)
+                raise PickoraNotImplementedError("Type " + repr(const_type), node, self.source)
 
         def parse_Tuple():
             tuple_size = len(node.elts)
@@ -332,22 +329,37 @@ class Compiler:
                     'lambda compiling is disabled by default, add `--lambda` option to enable it.', node, self.source)
             elif self.compile_lambda == 'python':
                 # Python bytecode mode:
-                # convert lambda function to FunctionType(CodeType(...),...)
+                # convert lambda function to FunctionType(CodeType(...), ...)
                 code = compile(ast.Expression(body=node), '<pickora.lambda>', 'eval')
                 lambda_code = next(c for c in code.co_consts if type(c) == types.CodeType)
 
                 code_attrs = ('argcount', 'posonlyargcount', 'kwonlyargcount', 'nlocals', 'stacksize', 'flags',
                               'code', 'consts', 'names', 'varnames', 'filename', 'name', 'firstlineno', 'lnotab')
                 code_args = [getattr(lambda_code, f'co_{attr}') for attr in code_attrs]
+                
+                # it's too complicated to call this constructor manually lol
                 call_CodeType = ast.parse(f'CodeType{tuple(code_args)}', mode='eval').body
                 call_CodeType.func = ('types', 'CodeType')
 
+                '''
+                FIXME (if possible)
+                Note that the globals is just a "clone" of current context.
+                So if any global variables change after the lambda definition,
+                the lambda won't see those changes
+                For example:
+                    val = 'before'
+                    f = lambda:val
+                    val = 'after'
+                    print(f())  # before
+                '''
+                func_globals = ast.Dict(keys=[], values=[])
+                for name in code_args[8]:  # co_names
+                    func_globals.keys.append(ast.Constant(value=name))
+                    func_globals.values.append(ast.Name(id=name))
+
                 self.call_function(('types', 'FunctionType'), (
                     call_CodeType,
-                    # if co_names not empty: it might need globals
-                    # although the globals is not the real globals for the source code
-                    ast.Call(func=('builtins', 'globals'), args=[]) if code_args[8] != ()
-                    else ast.Dict(keys=[], values=[]),
+                    func_globals,
                     None,
                     ast.Tuple(elts=node.args.defaults)
                 ))
