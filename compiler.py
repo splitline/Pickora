@@ -73,11 +73,47 @@ class Compiler:
         return pickle._tuplesize2code[size] if size <= 3 else pickle.TUPLE
 
     def call_function(self, func, args):
+        macro_handler = dict()
+
+        def macro_stack_global():
+            assert(len(args) == 2)
+            self.traverse(args[0])
+            self.traverse(args[1])
+            self.bytecode += pickle.STACK_GLOBAL
+        macro_handler['STACK_GLOBAL'] = macro_stack_global
+
+        def macro_global():
+            assert(len(args) == 2)
+            for i in range(2):
+                if not isinstance(args[i], ast.Constant):
+                    raise PickoraError(
+                        "arguments for GLOBAL macro should be constant", args[i], self.source)
+            self.bytecode += f'c{args[0].value}\n{args[1].value}\n'.encode()
+        macro_handler['GLOBAL'] = macro_global
+
+        def macro_instance():
+            assert(len(args) == 3)
+            for i in range(2):
+                if not isinstance(args[i], ast.Constant):
+                    raise PickoraError(
+                        "'modname' and 'name' arguments for INST macro should be constant", args[i], self.source)
+            self.bytecode += pickle.MARK
+            if not isinstance(args[2], ast.Tuple):
+                raise PickoraError(
+                    "'args' arguments for INST macro should be constant", args[2], self.source)
+            for arg in args[2].elts:
+                self.traverse(arg)
+            self.bytecode += f'i{args[0].value}\n{args[1].value}\n'.encode()
+        macro_handler['INST'] = macro_instance
+
         if type(func) == tuple:
             self.find_class(*func)
         else:
             if type(func) == str:
                 func = ast.Name(id=func, ctx=ast.Load())
+            if isinstance(func, ast.Name) and macro_handler.get(func.id):
+                macro_handler[func.id]()
+                return
             self.traverse(func)
         if len(args) > 3:
             self.bytecode += pickle.MARK
