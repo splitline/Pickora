@@ -41,10 +41,7 @@ if __name__ == "__main__":
 
     if args.dis:
         import pickletools
-        try:
-            pickletools.dis(bytecode)
-        except:
-            pass
+        pickletools.dis(bytecode)
 
     if args.output:
         with open(args.output, 'wb') as out:

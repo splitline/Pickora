@@ -24,11 +24,14 @@ class Compiler:
         self.bytecode += pickle.PROTO + b"\x04"  # protocol 4
 
         if len(tree.body) == 0:
-            self.bytecode = pickle.NONE + pickle.STOP
+            self.bytecode += pickle.NONE + pickle.STOP
             return self.bytecode
 
+        self.bytecode += pickle.MARK # for POP_MARK
         for node in tree.body[:-1]:
             self.traverse(node)
+        self.bytecode += pickle.POP_MARK # clean up stack
+        
         self.traverse(tree.body[-1], last=True)
 
         self.bytecode += pickle.STOP
