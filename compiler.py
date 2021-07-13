@@ -132,23 +132,31 @@ class Compiler:
 
     def traverse(self, node, last=False):
         def parse_Assign():
+            def get_assign_value():
+                self.bytecode += pickle.BINGET + ASSIGNMENT_TEMP_MEMO.to_bytes(1, 'little')
+            
             targets, value = node.targets, node.value
+            
             if last and len(targets) == 1 and isinstance(targets[0], ast.Name) and targets[0].id == PICKLE_RETURN_KEY:
                 self.traverse(value)
                 return
+
+            # put assignment value to memo
+            self.traverse(value)
+            self.bytecode += pickle.BINPUT + ASSIGNMENT_TEMP_MEMO.to_bytes(1, 'little')
+
             for target in targets:
                 # TODO: unpacking assignment
                 target_type = type(target)
                 if target_type == ast.Name:
                     self.check_name(target.id, target)
-                    self.traverse(value)
+                    get_assign_value()
                     self.put_memo(target.id)
-                    # self.bytecode += pickle.POP
                 elif target_type == ast.Subscript:
                     # For `ITER[IDX] = NEW_VAL`:
                     self.traverse(target.value)  # get ITER
                     self.traverse(target.slice)  # IDX
-                    self.traverse(value)  # NEW_VAL
+                    get_assign_value()
                     self.bytecode += pickle.SETITEM
                 elif target_type == ast.Attribute:
                     # For `OBJ.ATTR = VAL`:
@@ -160,7 +168,7 @@ class Compiler:
                     # BUILD arg 2: {attr: val}
                     self.bytecode += pickle.MARK
                     self.traverse(ast.Constant(target.attr))  # ATTR
-                    self.traverse(value)  # VAL
+                    get_assign_value()
                     self.bytecode += pickle.DICT
 
                     self.bytecode += pickle.TUPLE2 + pickle.BUILD
@@ -336,7 +344,7 @@ class Compiler:
                 code_attrs = ('argcount', 'posonlyargcount', 'kwonlyargcount', 'nlocals', 'stacksize', 'flags',
                               'code', 'consts', 'names', 'varnames', 'filename', 'name', 'firstlineno', 'lnotab')
                 code_args = [getattr(lambda_code, f'co_{attr}') for attr in code_attrs]
-                
+
                 # it's too complicated to call this constructor manually lol
                 call_CodeType = ast.parse(f'CodeType{tuple(code_args)}', mode='eval').body
                 call_CodeType.func = ('types', 'CodeType')

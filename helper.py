@@ -1,19 +1,27 @@
 import builtins
 import ast
 
-class PickoraError(Exception): pass
+
+class PickoraError(Exception):
+    pass
+
 
 class PickoraNameError(PickoraError):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+
 class PickoraNotImplementedError(PickoraError):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+
 class Memo():
     def __init__(self, index):
         self.index = index
+
+
+ASSIGNMENT_TEMP_MEMO = 0xFF
 
 
 class MemoManager:
@@ -30,6 +38,10 @@ class MemoManager:
 
         self.name_to_memo[name] = Memo(self.current_index)
         self.current_index += 1
+
+        if self.current_index == ASSIGNMENT_TEMP_MEMO:
+            self.current_index += 1
+
         return self.name_to_memo[name]
 
 
