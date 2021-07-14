@@ -1,3 +1,4 @@
+import argparse
 import pickle
 import sys
 from compiler import Compiler
@@ -11,7 +12,7 @@ def excepthook(etype, value, tb):
             message, node, source = value.args
             print("Compile error:")
             print(" "+str(node.lineno).rjust(4) + " | " +
-                source.splitlines()[node.lineno-1])
+                  source.splitlines()[node.lineno-1])
             print(" "*8+" "*node.col_offset + (node.end_col_offset-node.col_offset)*"^")
             print(" "*4+f"{etype.__name__}: {message}")
         except:
@@ -25,23 +26,29 @@ def excepthook(etype, value, tb):
 sys.excepthook = excepthook
 
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description="A toy compiler that can convert Python scripts to pickle bytecode.")
+    description = "A toy compiler that can convert Python scripts to pickle bytecode."
+    epilog = "Documentation can be found at https://github.com/splitline/Pickora"
+    parser = argparse.ArgumentParser(description=description, epilog=epilog)
     parser.add_argument("file", help="the Python script to compile")
-    parser.add_argument("-d", "--dis", help="disassamble compiled pickle bytecode", action="store_true")
-    parser.add_argument("-r", "--eval", "--run", help="run the pickle bytecode", action="store_true")
-    parser.add_argument("-l", "--lambda", dest='compile_lambda', help="choose lambda compiling mode",
+    parser.add_argument("-d", "--dis",
+                        help="disassamble compiled pickle bytecode", action="store_true")
+    parser.add_argument("-r", "--eval", "--run",
+                        help="run the pickle bytecode", action="store_true")
+    parser.add_argument("-l", "--lambda", dest='compile_lambda',
+                        help="choose lambda compiling mode",
                         choices=['none', 'python', 'pickle'], default='none')
     parser.add_argument("-o", "--output", type=str, help="write compiled pickle to file")
     args = parser.parse_args()
 
-    source = open(args.file, 'r').read()
-    compiler = Compiler(source, compile_lambda=args.compile_lambda)
+    compiler = Compiler(filename=args.file, compile_lambda=args.compile_lambda)
     bytecode = compiler.compile()
 
     if args.dis:
-        import pickletools
-        pickletools.dis(bytecode)
+        try:
+            import pickletools
+            pickletools.dis(bytecode)
+        except Exception as err:
+            print("[x] Disassamble error:", err, end='\n\n')
 
     if args.output:
         with open(args.output, 'wb') as out:

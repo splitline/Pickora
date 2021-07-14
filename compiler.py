@@ -9,8 +9,9 @@ PICKLE_RETURN_KEY = 'RETURN'
 
 
 class Compiler:
-    def __init__(self, source, compile_lambda='none'):
-        self.source = source
+    def __init__(self, /, filename='<pickora>', source='', compile_lambda='none'):
+        self.filename = filename
+        self.source = open(filename, 'r').read()
         self.compile_lambda = compile_lambda
         self.bytecode = bytes()
         self.memo_manager = MemoManager()
@@ -30,11 +31,9 @@ class Compiler:
         self.bytecode += pickle.MARK  # for POP_MARK
         for node in tree.body[:-1]:
             self.traverse(node)
-        self.bytecode += pickle.POP_MARK  # clean up stack
 
         self.traverse(tree.body[-1], last=True)
 
-        self.bytecode += pickle.STOP
         self.bytecode = pickletools.optimize(self.bytecode)
         return self.bytecode
 
@@ -132,15 +131,17 @@ class Compiler:
 
     def traverse(self, node, last=False):
         def parse_Assign():
-            def get_assign_value():
-                self.bytecode += pickle.BINGET + ASSIGNMENT_TEMP_MEMO.to_bytes(1, 'little')
-            
             targets, value = node.targets, node.value
-            
+
+            # Got a RETURN keyword!
             if last and len(targets) == 1 and isinstance(targets[0], ast.Name) and targets[0].id == PICKLE_RETURN_KEY:
-                self.traverse(value)
+                self.bytecode += pickle.POP_MARK # cleanup stack
+                self.traverse(value)  # put return value onto the stack
+                self.bytecode += pickle.STOP  # end of pickle
                 return
 
+            def get_assign_value():
+                self.bytecode += pickle.BINGET + ASSIGNMENT_TEMP_MEMO.to_bytes(1, 'little')
             # put assignment value to memo
             self.traverse(value)
             self.bytecode += pickle.BINPUT + ASSIGNMENT_TEMP_MEMO.to_bytes(1, 'little')
@@ -282,13 +283,11 @@ class Compiler:
                 self.bytecode += pickle.TUPLE1 + pickle.REDUCE
 
         # TODO: BoolOp
-        # elif node_type in [ast.BinOp, ast.UnaryOp]:
+        # [ast.BinOp, ast.UnaryOp]:
         def _parse_Op():
             op = type(node.op)
             assert(op in op_to_method)
 
-            # # magic methods are really magic, I don't understand it well :(
-            # self.getattr(node.left, '__'+op_to_method.get(op)+'__')
             args = tuple()
             if type(node) == ast.BinOp:
                 args = (node.left, node.right)
@@ -384,5 +383,10 @@ class Compiler:
                 local_vars.get(parser_function)()
             else:
                 raise PickoraNotImplementedError(type(node).__name__ + " syntax", node, self.source)
+
+            if last:
+                # POP_MARK: clean up stack
+                # end of pickle, return None
+                self.bytecode += pickle.POP_MARK + pickle.NONE + pickle.STOP
         else:
             raise PickoraNotImplementedError(type(node).__name__ + " syntax", node, self.source)
