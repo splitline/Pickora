@@ -36,9 +36,9 @@ For exmple, you can run:
 python3 pickora.py -d samples/hello.py -o output.pkl
 ```
 
-to compile `samples/hello.py` to `output.pkl` and show the disassamble result of the compiled pickle bytecode. 
+to compile `samples/hello.py` to `output.pkl` and show the disassembled result of the compiled pickle bytecode. 
 
-But this won't run the pickle for you. If you want you should add `-r` option, or execute the following command after compile:
+But note that this won't run the pickle for you. If you want to do so, add `-r` option or execute the following command after compilation:
 
 ```sh
 python3 -m pickle output.pkl
@@ -64,7 +64,7 @@ python3 -m pickle output.pkl
   - `lambda x,y=1: x+y`
   - Using `types.CodeType` and `types.FunctionType`
   - Disabled by default
-  - [Known bug] if any global variables change after the lambda definition, the lambda function won't see those changes.
+  - [Known bug] If any global variables are changed after the lambda definition, the lambda function won't see those changes.
 
 
 ## Special Syntax
@@ -174,7 +174,7 @@ if ans == 'Yes':
 elif ans == 'No':
   exit()
 ```
-It's still achievable! You can rewrite your code to this:
+It's still achievable! You can rewrite your code like this:
 
 ```python
 from functools import partial
