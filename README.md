@@ -64,13 +64,55 @@ Saving pickle to output.pkl
 $ python3 -m pickle output.pkl
 'INT_MAX=2147483647'
 ```
+### Macros
+
+There are currently 3 macros available: `STACK_GLOBAL`, `GLOBAL` and `INST`.
+
+#### `STACK_GLOBAL(modname: Any, name: Any)`
+
+Example:
+```python
+function_name = input("> ") # > system
+func = STACK_GLOBAL('os', function_name) # <built-in function system>
+func("date") # Tue Jan 13 33:33:37 UTC 2077
+```
+
+Behaviour:
+1. PUSH modname
+2. PUSH name
+3. STACK_GLOBAL
+
+#### `GLOBAL(modname: str, name: str)`
+
+Example:
+```python
+func = GLOBAL("os", "system") # <built-in function system>
+func("date") # Tue Jan 13 33:33:37 UTC 2077
+```
+
+Behaviour:
+
+Simply run this piece of bytecode: `f"c{modname}\n{name}\n"`
+
+#### `INST(modname: str, name: str, args: tuple[Any])`
+
+Example:
+```python
+command = input("cmd> ") # cmd> date
+INST("os", "system", (command,)) # Tue Jan 13 33:33:37 UTC 2077
+```
+
+Behaviour:
+1. PUSH a MARK
+2. PUSH `args` by order
+3. Run this piece of bytecode: `f'i{modname}\n{name}\n'`
 
 ## Todos
 
 - [x] Operators (<s>compare</s>, <s>unary</s>, <s>binary</s>, <s>subscript</s>)
 - [ ] Unpacking assignment
 - [ ] Augmented assignment
-- [ ] Macros (directly using GLOBAL, OBJECT bytecodes)
+- [x] Macros (directly using GLOBAL, OBJECT bytecodes)
 - [x] Lambda (I don't want to support normal function, because it seems not "picklic" for me)
   - [x] Python bytecode mode
   - [ ] Pickle bytecode mode
