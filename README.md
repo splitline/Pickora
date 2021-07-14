@@ -44,6 +44,29 @@ But this won't run the pickle for you. If you want you should add `-r` option, o
 python3 -m pickle output.pkl
 ```
 
+## Supported Syntax
+
+- Literal: int, float, bytes, string, dict, list, set, tuple, bool, None
+- Attributes: `obj.attr` (using `builtins.getattr`)
+- Assignment: `val = dict_['x'] = obj.attr = 'meow'` 
+- Named assignment: `(x := 0xff)`
+- Function call: `f(arg1, arg2)`
+  - Doesn't support keyword argument.
+- Operators (using `operators` module)
+  - Binary operators: `+`, `-`, `*`, `/` etc.
+  - Unary operators: `not`, `~`, `+val`, `-val`
+  - Compare: `0 < 3 > 2 == 2 > 1` (using `builtins.all` for chained compare)
+  - Subscript: `list_[1:3]`, `dict_['key']` (using `builtins.slice` for slice)
+- Import
+  - `import module` (using `builtins.__import__`)
+  - `from module import things` (directly using `STACK_GLOBALS` bytecode)
+- Lambda
+  - `lambda x,y=1: x+y`
+  - Using `types.CodeType` and `types.FunctionType`
+  - Disabled by default
+  - [Known bug] if any global variables change after the lambda definition, the lambda function won't see those changes.
+
+
 ## Special Syntax
 
 ### `RETURN`
