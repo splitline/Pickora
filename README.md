@@ -164,7 +164,7 @@ Yep, it's cool garbage.
 
 ### Would it support syntaxes like `if` / `while` / `for` ?
 
-No. All pickle can do is to just simply define a variable or call a function, so this kind of syntax wouldn't exist.
+No. All pickle can do is just simply define a variable or call a function, so this kind of syntax wouldn't exist.
 
 But if you want to do things like:
 ```python
