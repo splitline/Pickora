@@ -47,15 +47,15 @@ python3 -m pickle output.pkl
 ## Supported Syntax
 
 - Literal: int, float, bytes, string, dict, list, set, tuple, bool, None
-- Attributes: `obj.attr` (using `builtins.getattr`)
-- Assignment: `val = dict_['x'] = obj.attr = 'meow'` 
+- Assignment: `val = dict_['x'] = obj.attr = 'meow'` (directly using bytecode for all of these operation)
+- Attributes: `obj.attr` (using `builtins.getattr` only when you need to "load" an attribute)
 - Named assignment: `(x := 0xff)`
 - Function call: `f(arg1, arg2)`
   - Doesn't support keyword argument.
 - Operators (using `operators` module)
   - Binary operators: `+`, `-`, `*`, `/` etc.
   - Unary operators: `not`, `~`, `+val`, `-val`
-  - Compare: `0 < 3 > 2 == 2 > 1` (using `builtins.all` for chained compare)
+  - Compare: `0 < 3 > 2 == 2 > 1` (using `builtins.all` for chained comparing)
   - Subscript: `list_[1:3]`, `dict_['key']` (using `builtins.slice` for slice)
 - Import
   - `import module` (using `builtins.__import__`)
@@ -135,7 +135,7 @@ Behaviour:
 - [x] Operators (<s>compare</s>, <s>unary</s>, <s>binary</s>, <s>subscript</s>)
 - [ ] Unpacking assignment
 - [ ] Augmented assignment
-- [x] Macros (directly using GLOBAL, OBJECT bytecodes)
+- [x] Macros
 - [x] Lambda (I don't want to support normal function, because it seems not "picklic" for me)
   - [x] Python bytecode mode
   - [ ] Pickle bytecode mode
@@ -184,7 +184,7 @@ condition.get(ans, repr)()
 ```
 ta-da!
 
-For the loop syntax, you can try to use `map` / `reduce` ... .
+For the loop syntax, you can try to use `map` / `starmap` /  `reduce` etc .
 
 And yes, you are right, it's functional programming time!
 
