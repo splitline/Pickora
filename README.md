@@ -52,11 +52,16 @@ python3 -m pickle output.pkl
 - Named assignment: `(x := 0xff)`
 - Function call: `f(arg1, arg2)`
   - Doesn't support keyword argument.
-- Operators (using `operators` module)
+- Operators (using `operator` module)
   - Binary operators: `+`, `-`, `*`, `/` etc.
   - Unary operators: `not`, `~`, `+val`, `-val`
   - Compare: `0 < 3 > 2 == 2 > 1` (using `builtins.all` for chained comparing)
   - Subscript: `list_[1:3]`, `dict_['key']` (using `builtins.slice` for slice)
+  - Boolean operators (using `builtins.next`, `builtins.filter`)
+    - and: using `operator.not_`
+    - or: using `operator.truth`
+    - `(a or b or c)` -> `next(filter(truth, (a, b, c)), c)`
+    - `(a and b and c)` -> `next(filter(not_, (a, b, c)), c)`
 - Import
   - `import module` (using `builtins.__import__`)
   - `from module import things` (directly using `STACK_GLOBALS` bytecode)

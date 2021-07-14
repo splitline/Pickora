@@ -135,7 +135,7 @@ class Compiler:
 
             # Got a RETURN keyword!
             if last and len(targets) == 1 and isinstance(targets[0], ast.Name) and targets[0].id == PICKLE_RETURN_KEY:
-                self.bytecode += pickle.POP_MARK # cleanup stack
+                self.bytecode += pickle.POP_MARK  # cleanup stack
                 self.traverse(value)  # put return value onto the stack
                 self.bytecode += pickle.STOP  # end of pickle
                 return
@@ -282,7 +282,24 @@ class Compiler:
                 self.bytecode += self.get_tuple_code(tuple_size)
                 self.bytecode += pickle.TUPLE1 + pickle.REDUCE
 
-        # TODO: BoolOp
+        def parse_BoolOp():
+            # (a or b or c)     next(filter(truth, (a, b, c)), c)
+            # (a and b and c)   next(filter(not_, (a, b, c)), c)
+            _get_func = {ast.Or: 'truth', ast.And: 'not_'}
+            self.call_function(('builtins', 'next'), (
+                ast.Call(
+                    func=('builtins', 'filter'),
+                    args=[
+                        ast.Call(
+                            func='STACK_GLOBAL',
+                            args=list(map(ast.Constant, ['operator', _get_func[type(node.op)]]))
+                        ),
+                        ast.List(elts=node.values)
+                    ]
+                ),
+                node.values[-1]
+            ))
+
         # [ast.BinOp, ast.UnaryOp]:
         def _parse_Op():
             op = type(node.op)
