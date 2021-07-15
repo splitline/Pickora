@@ -28,21 +28,29 @@ optional arguments:
                         write compiled pickle to file
 ```
 
-> Lambda syntax is disabled (`--lambda=none`) by default.
+> Note: Lambda syntax is disabled (`--lambda=none`) by default.
 
-For exmple, you can run:
-
-```sh
-python3 pickora.py -d samples/hello.py -o output.pkl
-```
-
-to compile `samples/hello.py` to `output.pkl` and show the disassembled result of the compiled pickle bytecode. 
-
-But note that this won't run the pickle for you. If you want to do so, add `-r` option or execute the following command after compilation:
+### Quick Example
 
 ```sh
-python3 -m pickle output.pkl
+$ python3 pickora.py --dis samples/hello.py --output output.pkl
+    0: \x80 PROTO      4
+    2: \x95 FRAME      99
+            ...
+  108: N    NONE
+  109: .    STOP
+highest protocol among opcodes = 4
+
+$ python3 -m pickle output.pkl
+===================
+| Hello, world! 🐱 |
+===================
+None
 ```
+
+In this example, we compiled [`samples/hello.py`](./samples/hello.py) to `output.pkl` and show the disassembled result of the compiled pickle bytecode. 
+
+But note that this won't run the pickle for you. If you want to do so, add `-r` option or execute `python -m pickle output.pkl` as in this example.
 
 ## Supported Syntax
 
