@@ -84,3 +84,18 @@ op_to_method = {
     # ast.NotIn: "",
     # TODO: operator module doensn't include `not in` method
 }
+
+
+def CallAst(func, args):
+    def to_ast_type(obj):
+        if isinstance(obj, ast.AST):
+            return obj
+        const_map = {int, str, float, bytes, bool, type(None), type(Ellipsis)}
+        ast_map = {list: ast.List, tuple: ast.Tuple}
+        if type(obj) in const_map:
+            return ast.Constant(value=obj)
+        elif type(obj) in ast_map:
+            return ast_map[type(obj)](obj)
+        raise Exception("ast_Call_gen error")
+    args = [to_ast_type(arg) for arg in args]
+    return ast.Call(func=func, args=args)

@@ -263,40 +263,37 @@ class Compiler:
 
         def parse_Compare():
             # a > b > c -> all((a > b, b > c))
-            tuple_size = len(node.ops)
-            if tuple_size > 1:
-                self.find_class("builtins", 'all')
-            if tuple_size > 3:
-                self.bytecode += pickle.MARK  # TUPLE mark
-            left = node.left
-            for _op, right in zip(node.ops, node.comparators):
-                op = type(_op)
-                assert(op in op_to_method)
+            if len(node.ops) == 1:
+                op = node.ops[0]
                 self.call_function(
-                    ('operator', op_to_method.get(op)),
-                    (left, right)
+                    func=('operator', op_to_method.get(type(op))),
+                    args=[node.left, node.comparators[0]]
                 )
-                left = right
-            # /TUPLE
-            if tuple_size > 1:
-                self.bytecode += self.get_tuple_code(tuple_size)
-                self.bytecode += pickle.TUPLE1 + pickle.REDUCE
+                return
+
+            left = node.left
+            func = CallAst(
+                func=("builtins", 'all'),
+                args=[tuple(
+                    CallAst(
+                        func=('operator', op_to_method.get(type(op))),
+                        args=[left, left := right]
+                    )
+                    for op, right in zip(node.ops, node.comparators)
+                )]
+            )
+            self.traverse(func)
 
         def parse_BoolOp():
             # (a or b or c)     next(filter(truth, (a, b, c)), c)
             # (a and b and c)   next(filter(not_, (a, b, c)), c)
-            _get_func = {ast.Or: 'truth', ast.And: 'not_'}
+            _get_bool_func = {ast.Or: 'truth', ast.And: 'not_'}
+
             self.call_function(('builtins', 'next'), (
-                ast.Call(
-                    func=('builtins', 'filter'),
-                    args=[
-                        ast.Call(
-                            func='STACK_GLOBAL',
-                            args=list(map(ast.Constant, ['operator', _get_func[type(node.op)]]))
-                        ),
-                        ast.List(elts=node.values)
-                    ]
-                ),
+                CallAst(func=('builtins', 'filter'),
+                        args=[CallAst(func='STACK_GLOBAL',
+                                      args=['operator', _get_bool_func[type(node.op)]]),
+                              node.values]),
                 node.values[-1]
             ))
 
