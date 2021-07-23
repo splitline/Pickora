@@ -25,7 +25,7 @@ def excepthook(etype, value, tb):
 
 sys.excepthook = excepthook
 
-if __name__ == "__main__":
+def cli():
     description = "A toy compiler that can convert Python scripts to pickle bytecode."
     epilog = "Documentation can be found at https://github.com/splitline/Pickora"
     parser = argparse.ArgumentParser(description=description, epilog=epilog)
@@ -59,3 +59,6 @@ if __name__ == "__main__":
     if args.eval:
         ret = pickle.loads(bytecode)
         print("[+] pickle.loads returns:", repr(ret))
+
+if __name__ == "__main__":
+    cli()
