@@ -11,7 +11,10 @@ PICKLE_RETURN_KEY = 'RETURN'
 class Compiler:
     def __init__(self, /, filename='<pickora>', source='', compile_lambda='none'):
         self.filename = filename
-        self.source = open(filename, 'r').read()
+        if filename == '<pickora>' and source != '':
+            self.source = source
+        else:
+            self.source = open(filename, 'r').read()
         self.compile_lambda = compile_lambda
         self.bytecode = bytes()
         self.memo_manager = MemoManager()
@@ -47,7 +50,7 @@ class Compiler:
             self.bytecode += pickle.STACK_GLOBAL
 
             # cache imported function / class to memo
-            # if it is only used once, these bytecode will be removed by `pickletools.optimize` later
+            # if it is only used once, this bytecode will be removed by `pickletools.optimize` later
             self.put_memo((modname, name))
 
     def fetch_memo(self, key):
@@ -74,14 +77,14 @@ class Compiler:
     def call_function(self, func, args):
         macro_handler = dict()
 
-        def macro_stack_global():
+        def macro_stack_global(args):
             assert(len(args) == 2)
             self.traverse(args[0])
             self.traverse(args[1])
             self.bytecode += pickle.STACK_GLOBAL
         macro_handler['STACK_GLOBAL'] = macro_stack_global
 
-        def macro_global():
+        def macro_global(args):
             assert(len(args) == 2)
             for i in range(2):
                 if not isinstance(args[i], ast.Constant):
@@ -90,7 +93,7 @@ class Compiler:
             self.bytecode += f'c{args[0].value}\n{args[1].value}\n'.encode()
         macro_handler['GLOBAL'] = macro_global
 
-        def macro_instance():
+        def macro_instance(args):
             assert(len(args) == 3)
             for i in range(2):
                 if not isinstance(args[i], ast.Constant):
@@ -111,7 +114,7 @@ class Compiler:
             if type(func) == str:
                 func = ast.Name(id=func, ctx=ast.Load())
             if isinstance(func, ast.Name) and macro_handler.get(func.id):
-                macro_handler[func.id]()
+                macro_handler[func.id](args)
                 return
             self.traverse(func)
         if len(args) > 3:
@@ -130,7 +133,9 @@ class Compiler:
                 "It should be put in the last statement alone.", node, self.source)
 
     def traverse(self, node, last=False):
-        def parse_Assign():
+        node_parsers = dict()
+
+        def parse_Assign(node):
             targets, value = node.targets, node.value
 
             # Got a RETURN keyword!
@@ -177,7 +182,9 @@ class Compiler:
                     raise PickoraNotImplementedError(
                         f"{type(target).__name__} assignment", node, self.source)
 
-        def parse_Name():
+        node_parsers[ast.Assign] = parse_Assign
+
+        def parse_Name(node):
             self.check_name(node.id, node)
             if self.memo_manager.contains(node.id):
                 self.fetch_memo(node.id)
@@ -186,17 +193,25 @@ class Compiler:
             else:
                 raise PickoraNameError(f"name '{node.id}' is not defined.", node, self.source)
 
-        def parse_Expr():
+        node_parsers[ast.Name] = parse_Name
+
+        def parse_Expr(node):
             self.traverse(node.value)
 
-        def parse_NamedExpr():
+        node_parsers[ast.Expr] = parse_Expr
+
+        def parse_NamedExpr(node):
             self.traverse(node.value)
             self.put_memo(node.target.id)
 
-        def parse_Call():
+        node_parsers[ast.NamedExpr] = parse_NamedExpr
+
+        def parse_Call(node):
             self.call_function(node.func, node.args)
 
-        def parse_Constant():
+        node_parsers[ast.Call] = parse_Call
+
+        def parse_Constant(node):
             val = node.value
             const_type = type(val)
 
@@ -232,7 +247,9 @@ class Compiler:
                 # I am not sure if there are types I didn't implement 🤔
                 raise PickoraNotImplementedError("Type " + repr(const_type), node, self.source)
 
-        def parse_Tuple():
+        node_parsers[ast.Constant] = parse_Constant
+
+        def parse_Tuple(node):
             tuple_size = len(node.elts)
             if tuple_size > 3:
                 self.bytecode += pickle.MARK
@@ -240,13 +257,17 @@ class Compiler:
                 self.traverse(element)
             self.bytecode += self.get_tuple_code(tuple_size)
 
-        def parse_List():
+        node_parsers[ast.Tuple] = parse_Tuple
+
+        def parse_List(node):
             self.bytecode += pickle.MARK
             for element in node.elts:
                 self.traverse(element)
             self.bytecode += pickle.LIST
 
-        def parse_Dict():
+        node_parsers[ast.List] = parse_List
+
+        def parse_Dict(node):
             self.bytecode += pickle.MARK
             assert(len(node.keys) == len(node.values))
             for key, val in zip(node.keys, node.values):
@@ -254,14 +275,18 @@ class Compiler:
                 self.traverse(val)
             self.bytecode += pickle.DICT
 
-        def parse_Set():
+        node_parsers[ast.Dict] = parse_Dict
+
+        def parse_Set(node):
             self.bytecode += pickle.EMPTY_SET
             self.bytecode += pickle.MARK
             for element in node.elts:
                 self.traverse(element)
             self.bytecode += pickle.ADDITEMS
 
-        def parse_Compare():
+        node_parsers[ast.Set] = parse_Set
+
+        def parse_Compare(node):
             # a > b > c -> all((a > b, b > c))
             if len(node.ops) == 1:
                 op = node.ops[0]
@@ -284,7 +309,9 @@ class Compiler:
             )
             self.traverse(func)
 
-        def parse_BoolOp():
+        node_parsers[ast.Compare] = parse_Compare
+
+        def parse_BoolOp(node):
             # (a or b or c)     next(filter(truth, (a, b, c)), c)
             # (a and b and c)   next(filter(not_, (a, b, c)), c)
             _get_bool_func = {ast.Or: 'truth', ast.And: 'not_'}
@@ -297,8 +324,10 @@ class Compiler:
                 node.values[-1]
             ))
 
+        node_parsers[ast.BoolOp] = parse_BoolOp
+
         # [ast.BinOp, ast.UnaryOp]:
-        def _parse_Op():
+        def _parse_Op(node):
             op = type(node.op)
             assert(op in op_to_method)
 
@@ -310,20 +339,30 @@ class Compiler:
 
             self.call_function(("operator", op_to_method.get(op)), args)
 
-        def parse_Subscript():
+        node_parsers[ast.BinOp] = node_parsers[ast.UnaryOp] = _parse_Op
+
+        def parse_Subscript(node):
             self.call_function(('operator', "getitem"), (node.value, node.slice))
 
+        node_parsers[ast.Subscript] = parse_Subscript
+
         # compatible with Python 3.8
-        def parse_Index():
+        def parse_Index(node):
             self.traverse(node.value)
 
-        def parse_Slice():
+        node_parsers[ast.Index] = parse_Index
+
+        def parse_Slice(node):
             self.call_function(('builtins', 'slice'), (node.lower, node.upper, node.step))
 
-        def parse_Attribute():
+        node_parsers[ast.Slice] = parse_Slice
+
+        def parse_Attribute(node):
             self.call_function(('builtins', 'getattr'), (node.value, node.attr))
 
-        def parse_ImportFrom():
+        node_parsers[ast.Attribute] = parse_Attribute
+
+        def parse_ImportFrom(node):
             for alias in node.names:
                 if alias.name == '*':
                     raise PickoraNotImplementedError(
@@ -335,7 +374,9 @@ class Compiler:
                 else:
                     self.put_memo(alias.name)
 
-        def parse_Import():
+        node_parsers[ast.ImportFrom] = parse_ImportFrom
+
+        def parse_Import(node):
             for alias in node.names:
                 self.call_function(('builtins', '__import__'), (alias.name, ))
                 if getattr(alias, 'asname') != None:
@@ -344,7 +385,9 @@ class Compiler:
                 else:
                     self.put_memo(alias.name)
 
-        def parse_Lambda():
+        node_parsers[ast.Import] = parse_Import
+
+        def parse_Lambda(node):
             if self.compile_lambda == 'none':
                 raise PickoraError(
                     'lambda compiling is disabled by default, add `--lambda` option to enable it.', node, self.source)
@@ -388,13 +431,11 @@ class Compiler:
                 raise PickoraNotImplementedError(
                     f"Not implemented mode '{self.compile_lambda}' for compiling lambda.", node, self.source)
 
+        node_parsers[ast.Lambda] = parse_Lambda
+
         if isinstance(node, ast.AST):
-            # TODO: this is a bit hacky :/
-            local_vars = locals()
-            local_vars['parse_BinOp'] = local_vars['parse_UnaryOp'] = _parse_Op
-            parser_function = f'parse_{type(node).__name__}'
-            if local_vars.get(parser_function):
-                local_vars.get(parser_function)()
+            if node_parsers.get(type(node)):
+                node_parsers[type(node)](node)
             else:
                 raise PickoraNotImplementedError(type(node).__name__ + " syntax", node, self.source)
 
