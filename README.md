@@ -11,21 +11,22 @@ No third-party modules are required.
 ## Usage
 
 ```
-usage: pickora.py [-h] [-d] [-r] [-l {none,python,pickle}] [-o OUTPUT] file
+usage: pickora.py [-h] [-f FILE] [-d] [-r] [-l {none,python,pickle}] [-c CODE] [-o OUTPUT]
 
 A toy compiler that can convert Python scripts to pickle bytecode.
 
-positional arguments:
-  file                  the Python script to compile
-
 optional arguments:
   -h, --help            show this help message and exit
+  -f FILE, --file FILE  the Python script to compile
   -d, --dis             disassamble compiled pickle bytecode
-  -r, --eval, --run     run the pickle bytecode
+  -r, --run             run the compiled pickle bytecode
   -l {none,python,pickle}, --lambda {none,python,pickle}
                         choose lambda compiling mode
+  -c CODE, --code CODE  code passed in as a string
   -o OUTPUT, --output OUTPUT
                         write compiled pickle to file
+
+Basic usage: `python pickora.py -f samples/hello.py` or `python pickora.py -c 'print("Hello, world!")'`
 ```
 
 > Note: Lambda syntax is disabled (`--lambda=none`) by default.
@@ -33,7 +34,7 @@ optional arguments:
 ### Quick Example
 
 ```sh
-$ python3 pickora.py --dis samples/hello.py --output output.pkl
+$ python3 pickora.py -f samples/hello.py --output output.pkl --dis
     0: \x80 PROTO      4
     2: \x95 FRAME      99
             ...
@@ -94,7 +95,7 @@ RETURN = "INT_MAX=%d" % n
 ```
 It might look like this:
 ```shell
-$ python3 pickora.py source.py -o output.pkl
+$ python3 pickora.py -f source.py -o output.pkl
 Saving pickle to output.pkl
 
 $ python3 -m pickle output.pkl

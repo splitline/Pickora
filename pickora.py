@@ -27,21 +27,29 @@ sys.excepthook = excepthook
 
 if __name__ == "__main__":
     description = "A toy compiler that can convert Python scripts to pickle bytecode."
-    epilog = "Documentation can be found at https://github.com/splitline/Pickora"
+    epilog = "Basic usage: `python pickora.py -f samples/hello.py` or `python pickora.py -c 'print(\"Hello, world!\")'`"
     parser = argparse.ArgumentParser(description=description, epilog=epilog)
-    parser.add_argument("file", help="the Python script to compile")
+    parser.add_argument("-f", "--file", help="the Python script to compile")
     parser.add_argument("-d", "--dis",
                         help="disassamble compiled pickle bytecode", action="store_true")
-    parser.add_argument("-r", "--eval", "--run",
-                        help="run the pickle bytecode", action="store_true")
+    parser.add_argument("-r", "--run",
+                        help="run the compiled pickle bytecode", action="store_true")
     parser.add_argument("-l", "--lambda", dest='compile_lambda',
                         help="choose lambda compiling mode",
                         choices=['none', 'python', 'pickle'], default='none')
+    parser.add_argument("-c", "--code", type=str, help="code passed in as a string")
     parser.add_argument("-o", "--output", type=str, help="write compiled pickle to file")
     args = parser.parse_args()
 
-    compiler = Compiler(filename=args.file, compile_lambda=args.compile_lambda)
-    bytecode = compiler.compile()
+    if args.file:
+        compiler = Compiler(filename=args.file, compile_lambda=args.compile_lambda)
+        bytecode = compiler.compile()
+    elif args.code:
+        compiler = Compiler(source=args.code, compile_lambda=args.compile_lambda)
+        bytecode = compiler.compile()
+    else:
+        parser.print_help()
+        sys.exit(1)
 
     if args.dis:
         try:
@@ -56,6 +64,6 @@ if __name__ == "__main__":
     else:
         print("pickle_bytecode =", bytecode)
 
-    if args.eval:
+    if args.run:
         ret = pickle.loads(bytecode)
         print("[+] pickle.loads returns:", repr(ret))
