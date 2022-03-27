@@ -169,15 +169,16 @@ class Compiler:
                     self.traverse(target.value)  # get OBJ
 
                     # BUILD arg 1: {}
-                    self.bytecode += pickle.EMPTY_DICT
+                    ## seems not reallt required
+                    ## self.bytecode += pickle.EMPTY_DICT
 
                     # BUILD arg 2: {attr: val}
                     self.bytecode += pickle.MARK
                     self.traverse(ast.Constant(target.attr))  # ATTR
-                    get_assign_value()
+                    get_assign_value() # VAL
                     self.bytecode += pickle.DICT
 
-                    self.bytecode += pickle.TUPLE2 + pickle.BUILD
+                    self.bytecode += pickle.BUILD
                 else:
                     raise PickoraNotImplementedError(
                         f"{type(target).__name__} assignment", node, self.source)
