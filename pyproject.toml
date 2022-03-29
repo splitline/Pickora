@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "pickora"
+version = "0.1.0"
+description = "A toy compiler that can convert Python scripts to pickle bytecode."
+documentation = "https://github.com/splitline/Pickora"
+authors = ["splitline <tbsthitw@gmail.com>"]
+include = ["compiler.py", "helper.py"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+[tool.poetry.scripts]
+pickora = 'pickora:cli'
+
+[tool.poetry.urls]
+"Documentation" = "https://github.com/splitline/Pickora"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
