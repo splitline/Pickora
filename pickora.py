@@ -39,6 +39,7 @@ if __name__ == "__main__":
                         choices=['none', 'python', 'pickle'], default='none')
     parser.add_argument("-c", "--code", type=str, help="code passed in as a string")
     parser.add_argument("-o", "--output", type=str, help="write compiled pickle to file")
+    parser.add_argument("--format", help="Convert pickle to what format", choices=['hex', 'base64'])
     args = parser.parse_args()
 
     if args.file:
@@ -58,11 +59,18 @@ if __name__ == "__main__":
         except Exception as err:
             print("[x] Disassamble error:", err, end='\n\n')
 
+    out_bytecode = bytecode
+    if args.format:
+        if args.format == 'hex':
+            out_bytecode = bytecode.hex()
+        elif args.format == 'base64':
+            out_bytecode = bytecode.decode('latin-1').encode('ascii', 'backslashreplace').decode()
+
     if args.output:
         with open(args.output, 'wb') as out:
-            out.write(bytecode)
+            out.write(out_bytecode)
     else:
-        print("pickle_bytecode =", bytecode)
+        print("pickle_bytecode =", out_bytecode)
 
     if args.run:
         ret = pickle.loads(bytecode)
