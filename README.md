@@ -144,6 +144,17 @@ Behaviour:
 2. PUSH `args` by order
 3. Run this piece of bytecode: `f'i{modname}\n{name}\n'`
 
+#### `BUILD(inst: object, state: tuple[Any])`
+
+Example:
+```python
+from collections import _collections_abc
+BUILD(_collections_abc, (None, {'__all__': ['list']}))
+```
+
+Behaviour:
+Reference to the [pickle source code](https://github.com/python/cpython/blob/3.11/Lib/pickle.py#L1712-L1734).
+
 ## Todos
 
 - [x] Operators (<s>compare</s>, <s>unary</s>, <s>binary</s>, <s>subscript</s>)

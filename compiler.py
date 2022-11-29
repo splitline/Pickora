@@ -77,6 +77,13 @@ class Compiler:
     def call_function(self, func, args):
         macro_handler = dict()
 
+        def macro_build(args):
+            assert(len(args) == 2)
+            self.traverse(args[0])
+            self.traverse(args[1])
+            self.bytecode += pickle.BUILD
+        macro_handler['BUILD'] = macro_build
+
         def macro_stack_global(args):
             assert(len(args) == 2)
             self.traverse(args[0])
@@ -167,10 +174,12 @@ class Compiler:
                 elif target_type == ast.Attribute:
                     # For `OBJ.ATTR = VAL`:
                     self.traverse(target.value)  # get OBJ
+                    # TBD: 
+                    # if using __dict__ -> one dict
+                    # if using setattr -> tuple: (__dict__, ATTR)
 
                     # BUILD arg 1: {}
-                    ## seems not reallt required
-                    ## self.bytecode += pickle.EMPTY_DICT
+                    self.bytecode += pickle.EMPTY_DICT
 
                     # BUILD arg 2: {attr: val}
                     self.bytecode += pickle.MARK
@@ -178,7 +187,7 @@ class Compiler:
                     get_assign_value() # VAL
                     self.bytecode += pickle.DICT
 
-                    self.bytecode += pickle.BUILD
+                    self.bytecode += pickle.TUPLE2 + pickle.BUILD
                 else:
                     raise PickoraNotImplementedError(
                         f"{type(target).__name__} assignment", node, self.source)
