@@ -103,7 +103,7 @@ $ python3 -m pickle output.pkl
 ```
 ### Macros
 
-There are currently 3 macros available: `STACK_GLOBAL`, `GLOBAL` and `INST`.
+There are currently 4 macros available: `STACK_GLOBAL`, `GLOBAL`, `INST` and `BUILD`.
 
 #### `STACK_GLOBAL(modname: Any, name: Any)`
 
