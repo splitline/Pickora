@@ -1,5 +1,8 @@
 import builtins
 import ast
+from functools import wraps
+import types
+from operator import attrgetter
 
 
 class PickoraError(Exception):
@@ -16,37 +19,54 @@ class PickoraNotImplementedError(PickoraError):
         super().__init__(*args, **kwargs)
 
 
-class Memo():
-    def __init__(self, index):
-        self.index = index
-
-
-ASSIGNMENT_TEMP_MEMO = 0xFF
-
-
-class MemoManager:
-    def __init__(self):
-        self.name_to_memo = {}
-        self.current_index = 0
-
-    def contains(self, name) -> bool:
-        return name in self.name_to_memo
-
-    def get_memo(self, name) -> Memo:
-        if name in self.name_to_memo:
-            return self.name_to_memo[name]
-
-        self.name_to_memo[name] = Memo(self.current_index)
-        self.current_index += 1
-
-        if self.current_index == ASSIGNMENT_TEMP_MEMO:
-            self.current_index += 1
-
-        return self.name_to_memo[name]
-
-
 def is_builtins(name):
     return name in builtins.__dir__()
+
+
+def extended(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if self.extended:
+            return func(self, *args, **kwargs)
+        else:
+            raise PickoraError(
+                "Extended mode is not enabled (add -e or --extended option)")
+    return wrapper
+
+# decorator with argument, specifying MACRO arguments type (in ast)
+# add macro to self.macros
+
+
+def macro(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if len(args) != len(func.__annotations__):
+            raise PickoraError(
+                f"Macro {func.__name__} expected {len(func.__annotations__)} arguments but only got {len(args)}"
+            )
+
+        # resolve ast.Constant
+        _args = args
+
+        args = [arg.value if type(arg) == ast.Constant else arg for arg in args]
+
+        for arg, arg_type in zip(args, func.__annotations__.values()):
+            if arg_type == ast.AST:
+                continue
+
+            def annot2name(annotation):
+                if annotation == ast.AST:
+                    return "Any"
+                else:
+                    return annotation.__name__
+
+            if not isinstance(arg, arg_type):
+                raise PickoraError(
+                    f"Macro {func.__name__} expected ({ ', '.join(map(annot2name,func.__annotations__.values())) }) but got ({ ', '.join([type(arg).__name__ for arg in args]) })")
+
+        return func(self, *_args, **kwargs)
+    wrapper.__macro__ = True
+    return wrapper
 
 
 op_to_method = {
@@ -84,18 +104,3 @@ op_to_method = {
     # ast.NotIn: "",
     # TODO: operator module doensn't include `not in` method
 }
-
-
-def CallAst(func, args):
-    def to_ast_type(obj):
-        if isinstance(obj, ast.AST):
-            return obj
-        const_map = {int, str, float, bytes, bool, type(None), type(Ellipsis)}
-        ast_map = {list: ast.List, tuple: ast.Tuple}
-        if type(obj) in const_map:
-            return ast.Constant(value=obj)
-        elif type(obj) in ast_map:
-            return ast_map[type(obj)](obj)
-        raise Exception("ast_Call_gen error")
-    args = [to_ast_type(arg) for arg in args]
-    return ast.Call(func=func, args=args)

@@ -11,34 +11,39 @@ No third-party modules are required.
 ## Usage
 
 ```
-usage: pickora.py [-h] [-f FILE] [-d] [-r] [-l {none,python,pickle}] [-c CODE] [-o OUTPUT]
+usage: pickora.py [-h] [-c CODE] [-p PROTOCOL] [-e] [-O] [-o OUTPUT] [-d] [-r]
+                  [-f {repr,raw,hex,base64,none}]
+                  [source]
 
-A toy compiler that can convert Python scripts to pickle bytecode.
+A toy compiler that can convert Python scripts into pickle bytecode.
 
-optional arguments:
+positional arguments:
+  source                source code file
+
+options:
   -h, --help            show this help message and exit
-  -f FILE, --file FILE  the Python script to compile
-  -d, --dis             disassamble compiled pickle bytecode
-  -r, --run             run the compiled pickle bytecode
-  -l {none,python,pickle}, --lambda {none,python,pickle}
-                        choose lambda compiling mode
-  -c CODE, --code CODE  code passed in as a string
+  -c CODE, --code CODE  source code string
+  -p PROTOCOL, --protocol PROTOCOL
+                        pickle protocol
+  -e, --extended        enable extended syntax (trigger find_class)
+  -O, --optimize        optimize pickle bytecode (with pickletools.optimize)
   -o OUTPUT, --output OUTPUT
-                        write compiled pickle to file
+                        output file
+  -d, --disassemble     disassemble pickle bytecode
+  -r, --run             run (load) pickle bytecode immediately
+  -f {repr,raw,hex,base64,none}, --format {repr,raw,hex,base64,none}
+                        output format, none means no output
 
-Basic usage: `python pickora.py -f samples/hello.py` or `python pickora.py -c 'print("Hello, world!")'`
+Basic usage: `python pickora.py samples/hello.py` or `python pickora.py -c 'print("Hello, world!")' --extended`
 ```
-
-> Note: Lambda syntax is disabled (`--lambda=none`) by default.
 
 ### Quick Example
 
 ```sh
-$ python3 pickora.py -f samples/hello.py --output output.pkl --dis
+$ python3 pickora.py samples/hello.py --output output.pkl --dis
     0: \x80 PROTO      4
     2: \x95 FRAME      99
-            ...
-  108: N    NONE
+    ... (omitted) ...
   109: .    STOP
 highest protocol among opcodes = 4
 
@@ -49,18 +54,30 @@ $ python3 -m pickle output.pkl
 None
 ```
 
-In this example, we compiled [`samples/hello.py`](./samples/hello.py) to `output.pkl` and show the disassembled result of the compiled pickle bytecode. 
+In this example, we compiled [`samples/hello.py`](./samples/hello.py) into `output.pkl` and show the disassembled result of the compiled pickle bytecode. 
 
 But note that this won't run the pickle for you. If you want to do so, add `-r` option or execute `python -m pickle output.pkl` as in this example.
 
 ## Supported Syntax
 
-- Literal: int, float, bytes, string, dict, list, set, tuple, bool, None
-- Assignment: `val = dict_['x'] = obj.attr = 'meow'` (directly using bytecode for all of these operation)
-- Attributes: `obj.attr` (using `builtins.getattr` only when you need to "load" an attribute)
-- Named assignment: `(x := 0xff)`
+### Basic Syntax (achived by only using `pickle` opcodes)
+- Basic types: int, float, bytes, string, dict, list, set, tuple, bool, None
+- Assignment: `val = dict_['x'] = obj.attr = 'meow'`
+- Named assignment: `(x := 1337)`
 - Function call: `f(arg1, arg2)`
   - Doesn't support keyword argument.
+- Import
+  - `from module import things` (directly using `STACK_GLOBALS` bytecode)
+- Macros (see below for more details)
+  - `STACK_GLOBAL`
+  - `GLOBAL`
+  - `INST`
+  - `BUILD`
+
+### Extended Syntax (enabled by `-e` / `--extended` option)
+> Note: All extended syntaxes are implemented by importing other built-in modules. So with this option will trigger `find_class` when loading the pickle bytecode.
+
+- Attributes: `obj.attr` (using `builtins.getattr` only when you need to "load" an attribute)
 - Operators (using `operator` module)
   - Binary operators: `+`, `-`, `*`, `/` etc.
   - Unary operators: `not`, `~`, `+val`, `-val`
@@ -72,68 +89,46 @@ But note that this won't run the pickle for you. If you want to do so, add `-r` 
     - `(a or b or c)` -> `next(filter(truth, (a, b, c)), c)`
     - `(a and b and c)` -> `next(filter(not_, (a, b, c)), c)`
 - Import
-  - `import module` (using `builtins.__import__`)
-  - `from module import things` (directly using `STACK_GLOBALS` bytecode)
+  - `import module` (using `importlib.import_module`)
 - Lambda
   - `lambda x,y=1: x+y`
   - Using `types.CodeType` and `types.FunctionType`
-  - Disabled by default
   - [Known bug] If any global variables are changed after the lambda definition, the lambda function won't see those changes.
 
 
-## Special Syntax
+## Macros
 
-### `RETURN`
+There are currently 4 macros available: `STACK_GLOBAL`, `GLOBAL`, `INST` and `BUILD`.
 
-`RETURN` is a keyword reserved for specifying `pickle.load(s)` result. This keyword should only be put in the last statement alone, and you can assign any value / expression to it. 
+### `STACK_GLOBAL(modname: Any, name: Any)`
 
-For example, after you compile the following code and use `pickle.loads` to load the compiled pickle, it returns a string `'INT_MAX=2147483647'`.
-```python
-# source.py
-n = pow(2, 31) - 1
-RETURN = "INT_MAX=%d" % n
-```
-It might look like this:
-```shell
-$ python3 pickora.py -f source.py -o output.pkl
-Saving pickle to output.pkl
-
-$ python3 -m pickle output.pkl
-'INT_MAX=2147483647'
-```
-### Macros
-
-There are currently 3 macros available: `STACK_GLOBAL`, `GLOBAL` and `INST`.
-
-#### `STACK_GLOBAL(modname: Any, name: Any)`
-
-Example:
+**Example:**
 ```python
 function_name = input("> ") # > system
 func = STACK_GLOBAL('os', function_name) # <built-in function system>
 func("date") # Tue Jan 13 33:33:37 UTC 2077
 ```
 
-Behaviour:
+**Behaviour:**
 1. PUSH modname
 2. PUSH name
 3. STACK_GLOBAL
 
-#### `GLOBAL(modname: str, name: str)`
+### `GLOBAL(modname: str, name: str)`
 
-Example:
+**Example:**
 ```python
 func = GLOBAL("os", "system") # <built-in function system>
 func("date") # Tue Jan 13 33:33:37 UTC 2077
 ```
 
-Behaviour:
+**Behaviour:**
 
-Simply run this piece of bytecode: `f"c{modname}\n{name}\n"`
+Simply write this piece of bytecode: `f"c{modname}\n{name}\n"`
 
-#### `INST(modname: str, name: str, args: tuple[Any])`
+### `INST(modname: str, name: str, args: tuple[Any])`
 
-Example:
+**Example:**
 ```python
 command = input("cmd> ") # cmd> date
 INST("os", "system", (command,)) # Tue Jan 13 33:33:37 UTC 2077
@@ -144,30 +139,21 @@ Behaviour:
 2. PUSH `args` by order
 3. Run this piece of bytecode: `f'i{modname}\n{name}\n'`
 
-#### `BUILD(inst: object, state: tuple[Any])`
+### `BUILD(inst: Any, state: Any, slotstate: Any)`
 
-Example:
+> `state` is for `inst.__setstate__(state)` and `slotstate` is for setting attributes.
+
+**Example:**
 ```python
 from collections import _collections_abc
-BUILD(_collections_abc, (None, {'__all__': ['list']}))
+BUILD(_collections_abc, None, {'__all__': ['ChainMap', 'Counter', 'OrderedDict']})
 ```
 
-Behaviour:
-Reference to the [pickle source code](https://github.com/python/cpython/blob/3.11/Lib/pickle.py#L1712-L1734).
+**Behaviour:**
 
-## Todos
-
-- [x] Operators (<s>compare</s>, <s>unary</s>, <s>binary</s>, <s>subscript</s>)
-- [ ] Unpacking assignment
-- [ ] Augmented assignment
-- [x] Macros
-- [x] Lambda (I don't want to support normal function, because it seems not "picklic" for me)
-  - [x] Python bytecode mode
-  - [ ] Pickle bytecode mode
-
-### Impracticable 
-- [ ] Function call with kwargs
-  - `NEWOBJ_EX` only support type object (it calls `__new__`)
+1. PUSH `inst`
+2. PUSH `(state, slotstate)` (tuple)
+3. PUSH `BUILD`
 
 ## FAQ
 
