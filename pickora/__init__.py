@@ -79,5 +79,3 @@ def main():
         print("[*] Return value:", repr(ret))
 
 
-if __name__ == "__main__":
-    main()

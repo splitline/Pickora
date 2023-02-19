@@ -19,7 +19,7 @@ setuptools.setup(
 
     entry_points={
         "console_scripts": [
-            "pickora = src.pickora:main",
+            "pickora = pickora:main",
         ],
     },
 )
