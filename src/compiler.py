@@ -7,7 +7,7 @@ from struct import pack
 import types
 from typing import Any
 
-from helper import PickoraError, PickoraNameError, PickoraNotImplementedError, op_to_method, extended, is_builtins, macro
+from .helper import PickoraError, PickoraNameError, PickoraNotImplementedError, op_to_method, extended, is_builtins, macro
 
 
 class NodeVisitor(ast.NodeVisitor):

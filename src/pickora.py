@@ -2,11 +2,12 @@ import argparse
 import pickle
 import sys
 import base64
-from compiler import Compiler
-from helper import PickoraError
+from .compiler import Compiler
+from .helper import PickoraError
 import ast
 
-if __name__ == "__main__":
+
+def main():
     description = "A toy compiler that can convert Python scripts into pickle bytecode."
     epilog = "Basic usage: `python pickora.py samples/hello.py` or `python pickora.py -c 'print(\"Hello, world!\")' --extended`"
     parser = argparse.ArgumentParser(description=description, epilog=epilog)
@@ -76,3 +77,7 @@ if __name__ == "__main__":
         print("[*] Running pickle bytecode...")
         ret = pickle.loads(code)
         print("[*] Return value:", repr(ret))
+
+
+if __name__ == "__main__":
+    main()
