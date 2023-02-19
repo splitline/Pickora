@@ -8,19 +8,56 @@ A small compiler that can convert Python scripts to pickle bytecode.
 
 No third-party modules are required.
 
+## Quick Start
+
+### Installation
+
+**Using pip:**
+
+```sh
+$ pip install pickora
+```
+
+**From source:**
+
+```sh
+$ git clone https://github.com/splitline/Pickora.git
+$ cd Pickora
+$ python setup.py install
+```
+
+### Basic Usage
+
+**Compile from a string:**
+
+```sh
+$ pickora -c 'from builtins import print; print("Hello, world!")' -o output.pkl
+$ python -m pickle output.pkl # load the pickle bytecode
+Hello, world!
+None
+```
+
+**Compile from a file:**
+
+```sh
+$ echo 'from builtins import print; print("Hello, world!")' > hello.py
+$ pickora hello.py # output compiled pickle bytecode to stdout directly
+b'\x80\x04\x95(\x00\x00\x00\x00\x00\x00\x00\x8c\x08builtins\x8c\x05print\x93\x94\x94h\x01\x8c\rHello, world!\x85R.'
+```
+
 ## Usage
 
 ```
-usage: pickora.py [-h] [-c CODE] [-p PROTOCOL] [-e] [-O] [-o OUTPUT] [-d] [-r]
-                  [-f {repr,raw,hex,base64,none}]
-                  [source]
+usage: pickora [-h] [-c CODE] [-p PROTOCOL] [-e] [-O] [-o OUTPUT] [-d] [-r]
+               [-f {repr,raw,hex,base64,none}]
+               [source]
 
 A toy compiler that can convert Python scripts into pickle bytecode.
 
 positional arguments:
   source                source code file
 
-options:
+optional arguments:
   -h, --help            show this help message and exit
   -c CODE, --code CODE  source code string
   -p PROTOCOL, --protocol PROTOCOL
@@ -34,29 +71,8 @@ options:
   -f {repr,raw,hex,base64,none}, --format {repr,raw,hex,base64,none}
                         output format, none means no output
 
-Basic usage: `python pickora.py samples/hello.py` or `python pickora.py -c 'print("Hello, world!")' --extended`
+Basic usage: `pickora samples/hello.py` or `pickora --code 'print("Hello, world!")' --extended`
 ```
-
-### Quick Example
-
-```sh
-$ python3 pickora.py samples/hello.py --output output.pkl --dis
-    0: \x80 PROTO      4
-    2: \x95 FRAME      99
-    ... (omitted) ...
-  109: .    STOP
-highest protocol among opcodes = 4
-
-$ python3 -m pickle output.pkl
-===================
-| Hello, world! 🐱 |
-===================
-None
-```
-
-In this example, we compiled [`samples/hello.py`](./samples/hello.py) into `output.pkl` and show the disassembled result of the compiled pickle bytecode. 
-
-But note that this won't run the pickle for you. If you want to do so, add `-r` option or execute `python -m pickle output.pkl` as in this example.
 
 ## Supported Syntax
 
