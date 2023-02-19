@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="pickora",
-    version="1.0.0",
+    version="1.0.1",
     author="splitline",
     author_email="tbsthitw@gmail.com",
     description="A toy compiler that can convert Python scripts into pickle bytecode.",
