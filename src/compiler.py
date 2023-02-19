@@ -54,7 +54,6 @@ class NodeVisitor(ast.NodeVisitor):
             self.visit(arg)
         self.write(pickle.OBJ)
 
-
     @macro
     def NEWOBJ(self, cls: Any, args: Any):
         self.visit(cls)
@@ -120,6 +119,21 @@ class NodeVisitor(ast.NodeVisitor):
                 self.write(pickle.EMPTY_DICT)
                 self.pickler.save_dict({target.attr: value})
                 self.write(pickle.TUPLE2 + pickle.BUILD)
+            elif isinstance(target, ast.Tuple):
+                # a, b = 1, 2
+                if not hasattr(value, 'elts'):
+                    raise PickoraError(
+                        f"Cant unpack {type(value).__name__} to {type(target).__name__}"
+                    )
+                if len(target.elts) != len(value.elts):
+                    raise PickoraError(
+                        f"too many values to unpack (expected {len(target.elts)})"
+                    )
+                for i, (target, value) in enumerate(zip(target.elts, value.elts)):
+                    self.visit(value)
+                    self.visit_Assign(
+                        ast.Assign(targets=[target], value=value)
+                    )
             else:
                 raise PickoraNotImplementedError(
                     f"Assigning to {type(target)} is not supported"
@@ -132,6 +146,7 @@ class NodeVisitor(ast.NodeVisitor):
 
         self.visit(node.func)
         self.pickler.save_tuple(node.args)
+
         self.write(pickle.REDUCE)
 
     def visit_ImportFrom(self, node):
@@ -163,6 +178,12 @@ class NodeVisitor(ast.NodeVisitor):
                 self.put(alias.name)
 
     @extended
+    def visit_AugAssign(self, node):
+        op = type(node.op)
+        self.call('operator', op_to_method[op], node.target, node.value)
+        self.visit_Assign(ast.Assign([node.target], node.value))
+
+    @extended
     def visit_Subscript(self, node):
         self.call("operator", "getitem", node.value, node.slice)
 
@@ -176,28 +197,29 @@ class NodeVisitor(ast.NodeVisitor):
 
     @extended
     def visit_BinOp(self, node):
-        self.call("operator", op_to_method[type(
-            node.op)], node.left, node.right)
+        op_func = op_to_method[type(node.op)]
+        self.call("operator", op_func, node.left, node.right)
 
     @extended
     def visit_UnaryOp(self, node):
-        self.call("operator", op_to_method[type(node.op)], node.operand)
+        operand = node.operand
+        op_func = op_to_method[type(node.op)]
+        self.call("operator", op_func, operand)
 
     @extended
     def visit_BoolOp(self, node):
         # (a or b or c)     next(filter(truth, (a, b, c)), c)
         # (a and b and c)   next(filter(not_, (a, b, c)), c)
         bool_ops = {ast.Or: 'truth', ast.And: 'not_'}
-        symbol = ('operator', bool_ops[type(node.op)])
+        op = ('operator', bool_ops[type(node.op)])
 
-        self.find_class(*symbol)
-        self.put(symbol, pop=True)
+        self.find_class(*op)
+        op_func = self.put_temp()
 
-        self.call('builtins', 'filter', ast.Name(id=symbol), node.values)
-        self.put(f'filter_result_{id(node)}', pop=True)
+        self.call('builtins', 'filter', ast.Name(id=op_func), node.values)
+        filter_res = self.put_temp()
 
-        self.call('builtins', 'next', ast.Name(
-            id=f'filter_result_{id(node)}'), node.values[-1])
+        self.call('builtins', 'next', ast.Name(id=filter_res), node.values[-1])
 
     @extended
     def visit_Compare(self, node):
@@ -208,8 +230,8 @@ class NodeVisitor(ast.NodeVisitor):
             left = right
         self.write(pickle.TUPLE)
         arg_id = str(id(node))
-        self.put(arg_id, pop=True)
-        self.call("builtins", "all", ast.Name(id=arg_id))
+        cmp_res = self.put_temp()
+        self.call("builtins", "all", ast.Name(id=cmp_res))
 
     @extended
     def visit_Lambda(self, node):
@@ -221,9 +243,9 @@ class NodeVisitor(ast.NodeVisitor):
         code_args = [getattr(lambda_code, f"co_{attr}") for attr in code_attrs]
         globals_dict = {k: ast.Name(id=k) for k in code_args[8]}  # co_names
         self.call("types", "CodeType", *code_args)
-        self.put(f"lambda_({id(node)})", pop=True)
+        co_code = self.put_temp()
         self.call("types", "FunctionType",
-                  ast.Name(id=f"lambda_({id(node)})"),
+                  ast.Name(id=co_code),
                   globals_dict,
                   None,
                   tuple(node.args.defaults))
@@ -280,6 +302,12 @@ class NodeVisitor(ast.NodeVisitor):
 
         if pop:
             self.write(pickle.POP)
+
+    def put_temp(self):
+        # generate a temporary name
+        name = f"temp:{id(self.current_node)}"
+        self.put(name, pop=True)
+        return name
 
     def get(self, name):
         idx = self.memo[name]

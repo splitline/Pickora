@@ -63,7 +63,9 @@ But note that this won't run the pickle for you. If you want to do so, add `-r` 
 ### Basic Syntax (achived by only using `pickle` opcodes)
 - Basic types: int, float, bytes, string, dict, list, set, tuple, bool, None
 - Assignment: `val = dict_['x'] = obj.attr = 'meow'`
+- Augmented assignment: `x += 1`
 - Named assignment: `(x := 1337)`
+- Unpacking: `a, b, c = 1, 2, 3`
 - Function call: `f(arg1, arg2)`
   - Doesn't support keyword argument.
 - Import
@@ -72,7 +74,11 @@ But note that this won't run the pickle for you. If you want to do so, add `-r` 
   - `STACK_GLOBAL`
   - `GLOBAL`
   - `INST`
+  - `OBJ`
+  - `NEWOBJ`
+  - `NEWOBJ_EX`
   - `BUILD`
+
 
 ### Extended Syntax (enabled by `-e` / `--extended` option)
 > Note: All extended syntaxes are implemented by importing other built-in modules. So with this option will trigger `find_class` when loading the pickle bytecode.
