@@ -6,6 +6,7 @@ p(help.a, help.b, help.c, help.d)
 
 GLOBAL('os', 'system')('date')
 INST('os', 'system', ('cal',))
+OBJ(p, (1, 2, 3))
 
 # INST(mod, name, ('hello', 'world')) # should fail
 # INST(mod, name) # should fail

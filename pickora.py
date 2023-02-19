@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
     parser.add_argument("-c", "--code", help="source code string")
     parser.add_argument("-p", "--protocol", type=int,
-                        default=4, help="pickle protocol")
+                        default=pickle.DEFAULT_PROTOCOL, help="pickle protocol")
     parser.add_argument("-e", "--extended", action="store_true",
                         help="enable extended syntax (trigger find_class)")
     parser.add_argument("-O", "--optimize", action="store_true",

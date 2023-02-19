@@ -5,6 +5,7 @@ import io
 import sys
 from struct import pack
 import types
+from typing import Any
 
 from helper import PickoraError, PickoraNameError, PickoraNotImplementedError, op_to_method, extended, is_builtins, macro
 
@@ -23,13 +24,13 @@ class NodeVisitor(ast.NodeVisitor):
         return hasattr(self, macro_name) and getattr(getattr(self, macro_name), '__macro__', False)
 
     @macro
-    def BUILD(self, inst: ast.AST, state: ast.AST, slotstate: ast.AST):
+    def BUILD(self, inst: Any, state: Any, slotstate: Any):
         self.visit(inst)
         self.visit(ast.Tuple(elts=(state, slotstate),))
         self.write(pickle.BUILD)
 
     @macro
-    def STACK_GLOBAL(self, name: ast.AST, value: ast.AST):
+    def STACK_GLOBAL(self, name: Any, value: Any):
         self.visit(name)
         self.visit(value)
         self.write(pickle.STACK_GLOBAL)
@@ -44,6 +45,28 @@ class NodeVisitor(ast.NodeVisitor):
         for arg in args.elts:
             self.visit(arg)
         self.write(f'i{module.value}\n{name.value}\n'.encode())
+
+    @macro
+    def OBJ(self, callable: Any, args: ast.Tuple):
+        self.write(pickle.MARK)
+        self.visit(callable)
+        for arg in args.elts:
+            self.visit(arg)
+        self.write(pickle.OBJ)
+
+
+    @macro
+    def NEWOBJ(self, cls: Any, args: Any):
+        self.visit(cls)
+        self.visit(args)
+        self.write(pickle.NEWOBJ)
+
+    @macro
+    def NEWOBJ_EX(self, cls: Any, args: Any, kwargs: Any):
+        self.visit(cls)
+        self.visit(args)
+        self.visit(kwargs)
+        self.write(pickle.NEWOBJ_EX)
 
     def visit_Constant(self, node):
         self.save(node.value)
@@ -126,6 +149,10 @@ class NodeVisitor(ast.NodeVisitor):
     def visit_Expr(self, node):
         self.visit(node.value)
 
+    # compatiblity with python 3.8
+    def visit_Index(self, node):
+        self.visit(node.value)
+
     @extended
     def visit_Import(self, node):
         for alias in node.names:
@@ -134,10 +161,6 @@ class NodeVisitor(ast.NodeVisitor):
                 self.put(alias.asname)
             else:
                 self.put(alias.name)
-
-    # compatiblity with python 3.8
-    def visit_Index(self, node):
-        self.visit(node.value)
 
     @extended
     def visit_Subscript(self, node):
@@ -191,8 +214,7 @@ class NodeVisitor(ast.NodeVisitor):
     @extended
     def visit_Lambda(self, node):
         code = compile(ast.Expression(body=node), '<lambda>', 'eval')
-        lambda_code = next(filter(lambda x:
-                                  isinstance(x, types.CodeType),
+        lambda_code = next(filter(lambda x: isinstance(x, types.CodeType),
                                   code.co_consts))  # get code object
         code_attrs = ('argcount', 'posonlyargcount', 'kwonlyargcount', 'nlocals', 'stacksize', 'flags',
                       'code', 'consts', 'names', 'varnames', 'filename', 'name', 'firstlineno', 'lnotab')

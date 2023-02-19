@@ -3,6 +3,7 @@ import ast
 from functools import wraps
 import types
 from operator import attrgetter
+from typing import Any
 
 
 class PickoraError(Exception):
@@ -30,7 +31,8 @@ def extended(func):
             return func(self, *args, **kwargs)
         else:
             raise PickoraError(
-                "Extended mode is not enabled (add -e or --extended option)")
+                "Extended mode is not enabled (add -e or --extended option)"
+            )
     return wrapper
 
 # decorator with argument, specifying MACRO arguments type (in ast)
@@ -48,21 +50,21 @@ def macro(func):
         # resolve ast.Constant
         _args = args
 
-        args = [arg.value if type(arg) == ast.Constant else arg for arg in args]
+        args = [arg.value if type(arg) == ast.Constant else arg
+                for arg in args]
 
         for arg, arg_type in zip(args, func.__annotations__.values()):
-            if arg_type == ast.AST:
+            if arg_type == Any:
                 continue
 
-            def annot2name(annotation):
-                if annotation == ast.AST:
-                    return "Any"
-                else:
-                    return annotation.__name__
-
             if not isinstance(arg, arg_type):
+                def args2str(args):
+                    return ', '.join(map(attrgetter('__name__'), args))
+                expected = args2str(func.__annotations__.values())
+                provided = args2str(map(type, args))
                 raise PickoraError(
-                    f"Macro {func.__name__} expected ({ ', '.join(map(annot2name,func.__annotations__.values())) }) but got ({ ', '.join([type(arg).__name__ for arg in args]) })")
+                    f"Macro {func.__name__} expected({expected}) but got({provided})"
+                )
 
         return func(self, *_args, **kwargs)
     wrapper.__macro__ = True
