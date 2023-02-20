@@ -29,7 +29,7 @@ class NodeVisitor(ast.NodeVisitor):
         self.visit(ast.Tuple(elts=(state, slotstate),))
         self.write(pickle.BUILD)
 
-    @macro
+    @macro(proto=4)
     def STACK_GLOBAL(self, name: Any, value: Any):
         self.visit(name)
         self.visit(value)
@@ -54,13 +54,13 @@ class NodeVisitor(ast.NodeVisitor):
             self.visit(arg)
         self.write(pickle.OBJ)
 
-    @macro
+    @macro(proto=2)
     def NEWOBJ(self, cls: Any, args: Any):
         self.visit(cls)
         self.visit(args)
         self.write(pickle.NEWOBJ)
 
-    @macro
+    @macro(proto=4)
     def NEWOBJ_EX(self, cls: Any, args: Any, kwargs: Any):
         self.visit(cls)
         self.visit(args)
